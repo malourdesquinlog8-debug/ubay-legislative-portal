@@ -38,7 +38,7 @@ export default function Members() {
             {members.map((m) => (
               <div key={m.id} className="bg-white rounded-xl shadow-sm border p-6 text-center">
                 <div className="w-24 h-24 mx-auto bg-gray-200 rounded-full overflow-hidden mb-4">
-                  {m.photo_url ? <img src={m.photo_url} alt={m.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center font-bold text-gray-400">{m.name.charAt(0)}</div>}
+                  {m.photo_url ? <img src={m.photo_url} alt={m.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center font-bold text-gray-400">{(m.name || '?').charAt(0).toUpperCase()}</div>}
                 </div>
                 <h3 className="font-bold">{m.name}</h3>
                 <p className="text-sm text-blue-700">{m.position}</p>

@@ -58,7 +58,7 @@ export default function AdminLayout() {
         <div className="p-4">
           <div className="flex items-center mb-8 px-2">
             <div className="w-10 h-10 rounded-full bg-lgu-gold-500 flex items-center justify-center text-lgu-blue-900 font-bold text-lg">
-              {user.name.charAt(0)}
+              {(user?.name || user?.email || user?.full_name || '?').charAt(0).toUpperCase()}
             </div>
             <div className="ml-3">
               <p className="text-sm font-medium text-white">{user.name}</p>

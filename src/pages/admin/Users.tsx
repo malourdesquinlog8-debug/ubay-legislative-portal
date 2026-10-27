@@ -131,7 +131,7 @@ export default function Users() {
                   <td className="px-6 py-4">
                     <div className="flex items-center">
                       <div className="w-10 h-10 rounded-full bg-lgu-blue-50 flex items-center justify-center text-lgu-blue-900 font-bold mr-3">
-                        {user.full_name.charAt(0)}
+                        {(user.full_name || user.email || '?').charAt(0).toUpperCase()}
                       </div>
                       <div>
                         <div className="text-sm font-bold text-slate-900">{user.full_name}</div>

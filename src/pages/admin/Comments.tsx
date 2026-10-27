@@ -119,7 +119,7 @@ export default function Comments() {
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex items-center">
                     <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-lgu-blue-900 font-bold mr-3">
-                      {comment.user_name.charAt(0)}
+                      {(comment?.user?.name || comment?.user?.email || '?').charAt(0).toUpperCase()}
                     </div>
                     <div>
                       <h3 className="font-bold text-slate-900">{comment.user_name}</h3>
