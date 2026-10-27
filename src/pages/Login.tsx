@@ -13,11 +13,13 @@ export default function Login() {
 
     try {
       // DIRECT SA BACKEND 3001 - DILI NA PROXY!
-      const res = await fetch('http://localhost:3001/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
+      // For now, simple check - or use Supabase later
+if (email === 'admin@ubay.gov.ph' && password === 'admin123') {
+  // success login
+  navigate('/admin')
+} else {
+  alert('Invalid credentials')
+}
 
       const data = await res.json();
       console.log('Login response:', data);

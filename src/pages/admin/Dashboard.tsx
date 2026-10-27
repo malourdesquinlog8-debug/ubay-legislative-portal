@@ -1,3 +1,4 @@
+import { supabase } from '../../lib/supabase';
 import { useState, useEffect, useCallback } from 'react';
 
 export default function AdminDashboard() {
@@ -17,8 +18,11 @@ export default function AdminDashboard() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/legislations');
-      const legislations = await res.json();
+     // const res = await fetch('http://localhost:3001/api/legislations');
+     // const legislations = await res.json();
+     // Use Supabase instead
+  const { data: legislations } = await supabase.from('legislations').select('*', { count: 'exact' })
+  const { data: members } = await supabase.from('sb_members').select('*', { count: 'exact' }) 
 
       setStats({
         legislations: legislations.length,
