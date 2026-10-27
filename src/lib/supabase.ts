@@ -1,20 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL
+const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY
 
-console.log('🔍 DEBUG - URL:', supabaseUrl)
-console.log('🔍 DEBUG - KEY exists:', !!supabaseKey, 'Length:', supabaseKey?.length)
-console.log('🔍 DEBUG - KEY starts with:', supabaseKey?.substring(0, 20))
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error('❌ MISSING ENV! Check .env file!')
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing Supabase env vars!')
 }
 
-export const supabase = createClient(supabaseUrl || '', supabaseKey || '')
-
-export function initDB() {
-  return true
-}
-
-export default supabase
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)

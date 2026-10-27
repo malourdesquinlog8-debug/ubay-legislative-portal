@@ -91,7 +91,7 @@ export default function Contact() {
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 uppercase text-xs tracking-wider mb-1">Email Address</h3>
-                  <p className="text-slate-600">SangguniangBayan@lguUBAY.gov.ph</p>
+                  <p className="text-slate-600">sanggunianbayanubay@gmail.com</p>
                 </div>
               </div>
 
