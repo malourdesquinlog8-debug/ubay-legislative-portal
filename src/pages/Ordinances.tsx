@@ -1,155 +1,53 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
 
-interface Legislation {
-  id: number;
-  title: string;
-  type: string;
-  number: string;
-  description: string;
-  author: string;
-  status: string;
-  date_approved: string;
-  file_path: string;
-  created_at: string;
+type Legislation = {
+  id: string
+  title: string
+  ordinance_no: string
+  author: string
+  status: string
+  pdf_url: string
+  created_at: string
 }
 
 export default function Ordinances() {
-  const [legislations, setLegislations] = useState<Legislation[]>([]);
-  const [filtered, setFiltered] = useState<Legislation[]>([]);
-  const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState('All');
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => { fetchLegislations(); }, []);
+  const [docs, setDocs] = useState<Legislation[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    let result = [...legislations];
-    if (search) {
-      const s = search.toLowerCase();
-      result = result.filter(l => 
-        (l.title || '').toLowerCase().includes(s) ||
-        (l.number || '').toLowerCase().includes(s) ||
-        (l.description || '').toLowerCase().includes(s) ||
-        (l.type || '').toLowerCase().includes(s) ||
-        (l.author || '').toLowerCase().includes(s)
-      );
+    async function fetchDocs() {
+      const { data, error } = await supabase.from('legislations').select('*').order('created_at', { ascending: false })
+      console.log('PUBLIC Ordinances:', data, error)
+      if (data) setDocs(data)
+      setLoading(false)
     }
-    if (typeFilter !== 'All') {
-      result = result.filter(l => l.type === typeFilter);
-    }
-    if (statusFilter !== 'All') {
-      result = result.filter(l => l.status === statusFilter);
-    }
-    setFiltered(result);
-  }, [search, typeFilter, statusFilter, legislations]);
+    fetchDocs()
+  }, [])
 
-  const fetchLegislations = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('http://localhost:3001/api/legislations');
-      const data = await res.json();
-      setLegislations(data);
-      setFiltered(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><p>Loading ordinances...</p></div>
 
   return (
-    <div className="min-h-screen bg-[#f8fafc]">
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900">Ordinances and Resolutions</h1>
-          <p className="text-slate-600 mt-2">Ordinances and Resolutions of Sangguniang Bayan ng Ubay</p>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border p-5 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="md:col-span-2">
-              <label className="text-xs font-bold text-slate-500 uppercase">Search</label>
-              <div className="relative mt-1">
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by title, number, description..."
-                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 text-sm"
-                />
-                <span className="absolute left-3 top-3 text-slate-400">🔍</span>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold">Ordinances & Resolutions</h1>
+        <p className="text-gray-600 mt-2">Showing {docs.length} documents</p>
+        {docs.length === 0 ? (
+          <div className="mt-8 bg-white rounded-xl p-12 text-center"><p>No documents found.</p></div>
+        ) : (
+          <div className="mt-8 space-y-4">
+            {docs.map((d) => (
+              <div key={d.id} className="bg-white rounded-xl border p-4 flex justify-between items-center">
+                <div>
+                  <p className="font-bold text-blue-900">{d.ordinance_no} - {d.title}</p>
+                  <p className="text-sm text-gray-600">{d.author} - {d.status}</p>
+                </div>
+                {d.pdf_url && <a href={d.pdf_url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 underline">View PDF</a>}
               </div>
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase">Type</label>
-              <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-full mt-1 px-3 py-2.5 border rounded-lg text-sm bg-white">
-                <option value="All">All Types</option>
-                <option value="Ordinance">Ordinance</option>
-                <option value="Resolution">Resolution</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase">Status</label>
-              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full mt-1 px-3 py-2.5 border rounded-lg text-sm bg-white">
-                <option value="All">All Status</option>
-                <option value="Approved">Approved</option>
-                <option value="On 1st Reading">On 1st Reading</option>
-                <option value="On 2nd Reading">On 2nd Reading</option>
-                <option value="Pending">Pending</option>
-              </select>
-            </div>
+            ))}
           </div>
-          <div className="mt-4 flex justify-between items-center">
-            <p className="text-sm text-slate-500">Showing {filtered.length} of {legislations.length} documents</p>
-            {(search || typeFilter !== 'All' || statusFilter !== 'All') && (
-              <button onClick={() => { setSearch(''); setTypeFilter('All'); setStatusFilter('All'); }} className="text-sm font-medium hover:underline">Clear filters</button>
-            )}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-slate-50 border-b text-left">
-                  <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase">Number</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase">Title</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase">Type</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase">Status</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase">Document</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {loading ? (
-                  <tr><td colSpan={5} className="px-6 py-10 text-center text-slate-400">Loading...</td></tr>
-                ) : filtered.length === 0 ? (
-                  <tr><td colSpan={5} className="px-6 py-10 text-center text-slate-400">No documents found for "{search}"</td></tr>
-                ) : (
-                  filtered.map((leg) => (
-                    <tr key={leg.id} className="hover:bg-slate-50">
-                      <td className="px-6 py-4 text-sm font-bold">{leg.number || '-'}</td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm font-medium">{leg.title || 'Untitled'}</p>
-                        <p className="text-xs text-slate-500 mt-1 truncate max-w-xs">{leg.description || ''}</p>
-                      </td>
-                      <td className="px-6 py-4"><span className="px-2.5 py-1 rounded-full text-xs bg-slate-100">{leg.type || '-'}</span></td>
-                      <td className="px-6 py-4"><span className="px-2.5 py-1 rounded-full text-xs bg-green-100 text-green-800">{leg.status || '-'}</span></td>
-                      <td className="px-6 py-4">
-                        {leg.file_path ? (
-                          <a href={`http://localhost:3001${leg.file_path}`} target="_blank" className="text-sm text-blue-600 hover:underline">📄 View PDF</a>
-                        ) : (
-                          <span className="text-sm text-slate-400">No file</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        )}
       </div>
     </div>
-  );
+  )
 }
