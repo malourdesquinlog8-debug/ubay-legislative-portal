@@ -9,27 +9,38 @@ export default function Login() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if ((email === 'Albert@lgu.gov.ph' && password === 'admin123') || (email === 'admin@ubay.gov.ph' && password === 'admin123')) {
+
+    const validEmails = ['Albert@lgu.gov.ph', 'admin@ubay.gov.ph', 'albert@lgu.gov.ph'];
+    const validPass = 'admin123';
+
+    if (validEmails.includes(email) && password === validPass) {
+      // SET TANAN NGA POSSIBLE NGA GI-CHECK SA AUTH
       localStorage.setItem('isAdmin', 'true');
+      localStorage.setItem('isAuthenticated', 'true');
       localStorage.setItem('adminUser', email);
-      window.location.href = '/admin';
+      localStorage.setItem('user', JSON.stringify({ email, name: 'Albert', role: 'admin' }));
+      localStorage.setItem('sb_user', JSON.stringify({ email, name: 'Albert' }));
+      localStorage.setItem('auth', 'true');
+      
+      // FORCE REDIRECT - DILI navigate, window.location jud!
+      setTimeout(() => {
+        window.location.replace('/admin');
+      }, 100);
     } else {
-      setError('Invalid email or password');
+      setError('Invalid email or password. Use Albert@lgu.gov.ph / admin123');
     }
   };
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9', padding: '16px' }}>
       <div style={{ width: '100%', maxWidth: '400px', background: 'white', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', border: '1px solid #e2e8f0' }}>
-        {/* Header */}
         <div style={{ background: '#0f172a', height: '160px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: '80px', height: '80px', background: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <img src="/logo.png" alt="Logo" style={{ width: '64px', height: '64px', objectFit: 'contain' }} onError={(e:any)=>e.target.style.display='none'} />
+          <div style={{ width: '80px', height: '80px', background: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            <img src="/sblogo.jpg" alt="Logo" style={{ width: '70px', height: '70px', objectFit: 'contain' }} />
           </div>
           <p style={{ color: '#eab308', fontSize: '14px', marginTop: '16px', fontWeight: 500 }}>Sangguniang Bayan of Ubay</p>
         </div>
 
-        {/* Form */}
         <div style={{ padding: '32px' }}>
           <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div>
@@ -55,7 +66,6 @@ export default function Login() {
             </button>
 
             <p style={{ textAlign: 'center', fontSize: '13px', color: '#64748b' }}><a href="#" style={{ color: '#64748b', textDecoration: 'none' }}>Forgot password?</a></p>
-
             <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '16px', marginTop: '8px' }}>
               <p style={{ fontSize: '11px', textAlign: 'center', color: '#94a3b8' }}>Authorized personnel only. All activities are logged.</p>
             </div>
