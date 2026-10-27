@@ -1,17 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Edit2, Trash2, Search, Image as ImageIcon, CheckCircle, XCircle } from 'lucide-react';
-import { format } from 'date-fns';
-import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
 
 export default function NewsManagement() {
-  const { token } = useAuth();
   const [news, setNews] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  // Form States
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState<any>({
     title: '',
     content: '',
@@ -23,20 +17,19 @@ export default function NewsManagement() {
   });
 
   const fetchNews = useCallback(async () => {
-    if (!token) return;
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/news', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
-      setNews(data);
+      // SUPABASE - dili /api/admin/news!
+      const { data, error } = await supabase.from('news').select('*').order('created_at', { ascending: false });
+      console.log('News fetched:', data, error);
+      if (error) throw error;
+      if (data) setNews(data);
     } catch (err) {
       console.error('Failed to fetch news:', err);
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     fetchNews();
@@ -46,8 +39,13 @@ export default function NewsManagement() {
     if (item) {
       setEditingItem(item);
       setFormData({
-        ...item,
-        event_date: item.event_date ? format(new Date(item.event_date), "yyyy-MM-dd'T'HH:mm") : ''
+        title: item.title || '',
+        content: item.content || '',
+        category: item.category || 'News',
+        author: item.author || '',
+        event_date: item.event_date ? new Date(item.event_date).toISOString().slice(0, 16) : '',
+        image_url: item.image_url || '',
+        is_published: item.is_published ? 1 : 0
       });
     } else {
       setEditingItem(null);
@@ -64,258 +62,117 @@ export default function NewsManagement() {
     setShowModal(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const method = editingItem ? 'PUT' : 'POST';
-    const endpoint = editingItem ? `/api/news/${editingItem.id}` : '/api/news';
-
+  const handleSave = async () => {
     try {
-      const res = await fetch(endpoint, {
-        method,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(formData)
-      });
-      if (res.ok) {
-        setShowModal(false);
-        fetchNews();
+      if (!formData.title.trim() || !formData.content.trim()) {
+        alert('Title and Content required!');
+        return;
       }
-    } catch (err) {
+
+      const payload = {
+        title: formData.title.trim(),
+        content: formData.content.trim(),
+        category: formData.category,
+        author: formData.author.trim() || 'PIO OFFICE',
+        event_date: formData.event_date || null,
+        image_url: formData.image_url.trim(),
+        is_published: formData.is_published ? true : false,
+        created_at: new Date().toISOString()
+      };
+
+      console.log('Saving:', payload);
+
+      let result;
+      if (editingItem) {
+        // Update
+        result = await supabase.from('news').update(payload).eq('id', editingItem.id).select();
+      } else {
+        // Insert
+        result = await supabase.from('news').insert([payload]).select();
+      }
+
+      if (result.error) {
+        console.error('Save error:', result.error);
+        alert('Error: ' + result.error.message);
+        return;
+      }
+
+      console.log('Saved!', result.data);
+      alert('News/Event saved successfully!');
+      setShowModal(false);
+      fetchNews();
+
+    } catch (err: any) {
       console.error('Save failed:', err);
+      alert('Failed: ' + err.message);
     }
   };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this item?')) return;
-    try {
-      const res = await fetch(`/api/news/${id}`, { 
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) fetchNews();
-    } catch (err) {
-      console.error('Delete failed:', err);
-    }
-  };
-
-  const filteredNews = news.filter(item => 
-    (item.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item.content || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-serif font-bold text-slate-900">News & Events Management</h1>
-          <p className="text-slate-500">Publish announcements, updates, and upcoming municipal events.</p>
-        </div>
-        <button 
-          onClick={() => handleOpenModal()}
-          className="bg-lgu-blue-900 text-white px-4 py-2 rounded-lg font-bold flex items-center hover:bg-lgu-blue-800 transition-colors"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Add News/Event
-        </button>
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">News & Events Management</h1>
+        <button onClick={() => handleOpenModal()} className="bg-blue-900 text-white px-4 py-2 rounded-lg">Add News/Event</button>
       </div>
 
-      {/* Search */}
-      <div className="mb-6">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-          <input 
-            type="text" 
-            placeholder="Search news and events..."
-            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-lgu-blue-900"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-          />
-        </div>
-      </div>
-
-      {/* Content Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        {loading ? (
-          <div className="p-12 text-center text-slate-500">Loading...</div>
-        ) : filteredNews.length === 0 ? (
-          <div className="p-12 text-center text-slate-500">No items found.</div>
-        ) : (
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Title</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Category</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Author</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredNews.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center">
-                      {item.image_url ? (
-                        <img src={item.image_url} alt="" className="w-10 h-10 rounded object-cover mr-3" referrerPolicy="no-referrer" />
-                      ) : (
-                        <div className="w-10 h-10 rounded bg-slate-100 flex items-center justify-center text-slate-400 mr-3">
-                          <ImageIcon className="w-5 h-5" />
-                        </div>
-                      )}
-                      <div>
-                        <div className="text-sm font-bold text-slate-900 line-clamp-1">{item.title}</div>
-                        <div className="text-xs text-slate-500 line-clamp-1">{item.content}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${
-                      item.category === 'News' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
-                    }`}>
-                      {item.category}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
-                    {item.author || '---'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                    {item.event_date ? format(new Date(item.event_date), 'MMM d, yyyy') : format(new Date(item.created_at), 'MMM d, yyyy')}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {item.is_published ? (
-                      <span className="inline-flex items-center text-green-600 text-xs font-bold uppercase tracking-wider">
-                        <CheckCircle className="w-3 h-3 mr-1" /> Published
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center text-slate-400 text-xs font-bold uppercase tracking-wider">
-                        <XCircle className="w-3 h-3 mr-1" /> Draft
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button 
-                      onClick={() => handleOpenModal(item)}
-                      className="text-lgu-blue-900 hover:text-lgu-gold-600 mr-3"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(item.id)}
-                      className="text-red-600 hover:text-red-800"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="p-6 border-b border-slate-100 bg-slate-50">
-              <h2 className="text-xl font-bold text-slate-900">
-                {editingItem ? 'Edit' : 'Add New'} News/Event
-              </h2>
-            </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+      {loading ? <p>Loading...</p> : (
+        <div className="grid gap-4">
+          {news.length === 0 ? <p>No news yet</p> : news.map((n: any) => (
+            <div key={n.id} className="bg-white border rounded-xl p-4 flex justify-between">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Title</label>
-                <input 
-                  type="text" 
-                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-lgu-blue-900"
-                  placeholder="Title of the news or event"
-                  value={formData.title}
-                  onChange={e => setFormData({...formData, title: e.target.value})}
-                  required
-                />
+                <p className="font-bold">{n.title}</p>
+                <p className="text-sm text-gray-600">{n.category} - {n.author}</p>
+              </div>
+              <button onClick={() => handleOpenModal(n)} className="text-blue-600 text-sm">Edit</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h- overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4">{editingItem ? 'Edit' : 'Add New'} News/Event</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold">TITLE</label>
+                <input value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Category</label>
-                  <select 
-                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-lgu-blue-900"
-                    value={formData.category}
-                    onChange={e => setFormData({...formData, category: e.target.value})}
-                  >
-                    <option value="News">News</option>
-                    <option value="Event">Event</option>
-                    <option value="Announcement">Announcement</option>
+                  <label className="text-xs font-semibold">CATEGORY</label>
+                  <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg">
+                    <option>News</option><option>Event</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Author / Office</label>
-                  <input 
-                    type="text" 
-                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-lgu-blue-900"
-                    placeholder="e.g. PIO Office"
-                    value={formData.author}
-                    onChange={e => setFormData({...formData, author: e.target.value})}
-                  />
+                  <label className="text-xs font-semibold">AUTHOR / OFFICE</label>
+                  <input value={formData.author} onChange={(e) => setFormData({...formData, author: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg" placeholder="PIO OFFICE" />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Event Date (Optional)</label>
-                <input 
-                  type="datetime-local" 
-                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-lgu-blue-900"
-                  value={formData.event_date}
-                  onChange={e => setFormData({...formData, event_date: e.target.value})}
-                />
+                <label className="text-xs font-semibold">EVENT DATE (OPTIONAL)</label>
+                <input type="datetime-local" value={formData.event_date} onChange={(e) => setFormData({...formData, event_date: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Image URL</label>
-                <input 
-                  type="text" 
-                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-lgu-blue-900"
-                  placeholder="https://images.unsplash.com/..."
-                  value={formData.image_url}
-                  onChange={e => setFormData({...formData, image_url: e.target.value})}
-                />
+                <label className="text-xs font-semibold">IMAGE URL</label>
+                <input value={formData.image_url} onChange={(e) => setFormData({...formData, image_url: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg" placeholder="https://images.unsplash.com/..." />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Content</label>
-                <textarea 
-                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-lgu-blue-900 h-40 resize-none"
-                  placeholder="Detailed content..."
-                  value={formData.content}
-                  onChange={e => setFormData({...formData, content: e.target.value})}
-                  required
-                ></textarea>
+                <label className="text-xs font-semibold">CONTENT</label>
+                <textarea value={formData.content} onChange={(e) => setFormData({...formData, content: e.target.value})} className="w-full mt-1 px-3 py-2 border rounded-lg h-32" />
               </div>
-              <div className="flex items-center">
-                <input 
-                  type="checkbox" 
-                  id="is_published"
-                  className="w-4 h-4 text-lgu-blue-900 border-slate-300 rounded focus:ring-lgu-blue-900"
-                  checked={formData.is_published === 1}
-                  onChange={e => setFormData({...formData, is_published: e.target.checked ? 1 : 0})}
-                />
-                <label htmlFor="is_published" className="ml-2 text-sm font-medium text-slate-700">Publish immediately</label>
+              <div className="flex items-center gap-2">
+                <input type="checkbox" checked={!!formData.is_published} onChange={(e) => setFormData({...formData, is_published: e.target.checked ? 1 : 0})} />
+                <label className="text-sm">Publish immediately</label>
               </div>
-              <div className="flex justify-end space-x-3 pt-4">
-                <button 
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-6 py-2 border border-slate-200 rounded-lg font-bold text-slate-600 hover:bg-slate-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  className="px-6 py-2 bg-lgu-blue-900 text-white rounded-lg font-bold hover:bg-lgu-blue-800 transition-colors"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-6">
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg">Cancel</button>
+              <button onClick={handleSave} className="px-6 py-2 bg-blue-900 text-white rounded-lg">Save Changes</button>
+            </div>
           </div>
         </div>
       )}
