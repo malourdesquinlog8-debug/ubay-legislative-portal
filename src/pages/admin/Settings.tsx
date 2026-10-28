@@ -1,103 +1,76 @@
 import { useState } from 'react';
-import { Mail, Lock } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { User, Lock, Globe, Save, Check } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
 
-export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
-  const navigate = useNavigate();
+export default function Settings() {
+  const { user, login } = useAuth();
+  const [activeTab, setActiveTab] = useState('profile');
+  const [fullName, setFullName] = useState(user?.name || 'Albert');
+  const [email, setEmail] = useState(user?.email || 'Albert@lgu.gov.ph');
+  const [saved, setSaved] = useState(false);
+  const [currentPass, setCurrentPass] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-
+  const handleSaveProfile = async () => {
+    if (!fullName.trim() || !email.trim()) return alert('Required');
     try {
-      // TRY SUPABASE FIRST
-      const { data: userData, error: supaError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('email', email)
-        .eq('password', password)
-        .single();
-
-      let finalUser = null;
-
-      if (!supaError && userData) {
-        // FOUND IN SUPABASE!
-        finalUser = {
-          id: userData.id,
-          name: userData.full_name || userData.name || 'Albert',
-          full_name: userData.full_name || userData.name || 'Albert',
-          email: userData.email,
-          role: userData.role || 'admin'
-        };
-      } else {
-        // FALLBACK TO DUMMY - FOR FIRST TIME
-        const validEmails = ['Albert@lgu.gov.ph', 'admin@ubay.gov.ph', 'albert@lgu.gov.ph'];
-        const savedPass = localStorage.getItem('saved_password') || 'admin123';
-        
-        if (validEmails.includes(email) && (password === savedPass || password === 'admin123')) {
-          finalUser = {
-            id: '1',
-            name: 'Albert',
-            full_name: 'Albert',
-            email: email,
-            role: 'admin'
-          };
-        }
-      }
-
-      if (finalUser) {
-        const token = 'ubay-admin-token-' + Date.now();
-        login(token, finalUser);
-        localStorage.setItem('isAdmin', 'true');
-        localStorage.setItem('saved_profile', JSON.stringify({ name: finalUser.name, email: finalUser.email }));
-        navigate('/admin');
-        setTimeout(() => window.location.href = '/admin', 100);
-      } else {
-        setError('Invalid email or password');
-      }
+      const { error } = await supabase.from('users').update({ full_name: fullName, name: fullName, email: email }).eq('email', user?.email || 'Albert@lgu.gov.ph');
+      if (error) throw error;
+      const updatedUser = { id: user?.id || '1', name: fullName, full_name: fullName, email, role: 'admin' };
+      const token = localStorage.getItem('token') || 'ubay-admin-token';
+      login(token, updatedUser);
+      localStorage.setItem('saved_profile', JSON.stringify({ name: fullName, email }));
+      setSaved(true);
+      setTimeout(()=>setSaved(false), 3000);
     } catch (err: any) {
-      setError('Login error: ' + err.message);
-    } finally {
-      setLoading(false);
+      alert('Error: ' + err.message);
+    }
+  };
+
+  const handleSaveSecurity = async () => {
+    if (!currentPass || !newPass || !confirmPass) return alert('Fill all');
+    if (newPass !== confirmPass) return alert('No match');
+    try {
+      const { data } = await supabase.from('users').select('*').eq('email', user?.email).eq('password', currentPass).single();
+      if (!data) {
+        const savedPass = localStorage.getItem('saved_password') || 'admin123';
+        if (currentPass !== savedPass) return alert('Current incorrect');
+      }
+      const { error } = await supabase.from('users').update({ password: newPass }).eq('email', user?.email || 'Albert@lgu.gov.ph');
+      if (error) throw error;
+      localStorage.setItem('saved_password', newPass);
+      alert('Password changed in Supabase!');
+      setCurrentPass(''); setNewPass(''); setConfirmPass('');
+      setSaved(true); setTimeout(()=>setSaved(false), 3000);
+    } catch (err: any) {
+      alert('Error: ' + err.message);
     }
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9', padding: '16px' }}>
-      <div style={{ width: '100%', maxWidth: '400px', background: 'white', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', border: '1px solid #e2e8f0' }}>
-        <div style={{ background: '#0f172a', height: '160px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: '80px', height: '80px', background: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-            <img src="/sblogo.jpg" alt="Logo" style={{ width: '70px', height: '70px', objectFit: 'contain' }} />
+    <div className="p-8 bg-slate-100 min-h-screen">
+      <div className="max-w-6xl mx-auto">
+        <h1 className="text-3xl font-bold">Settings</h1>
+        <p className="text-slate-500 text-sm mt-1">Manage account - Synced with Supabase</p>
+        <div className="flex gap-8 mt-8">
+          <div className="w-56 space-y-2">
+            <button onClick={()=>setActiveTab('profile')} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm ${activeTab==='profile'?'bg-slate-900 text-white':'text-slate-600 hover:bg-white'}`}><User className="w-4 h-4" /> Profile Info</button>
+            <button onClick={()=>setActiveTab('security')} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm ${activeTab==='security'?'bg-slate-900 text-white':'text-slate-600 hover:bg-white'}`}><Lock className="w-4 h-4" /> Security</button>
+            <button onClick={()=>setActiveTab('config')} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm ${activeTab==='config'?'bg-slate-900 text-white':'text-slate-600 hover:bg-white'}`}><Globe className="w-4 h-4" /> System Config</button>
           </div>
-          <p style={{ color: '#eab308', fontSize: '14px', marginTop: '16px', fontWeight: 500 }}>Sangguniang Bayan of Ubay</p>
-        </div>
-        <div style={{ padding: '32px' }}>
-          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div>
-              <label style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b', display: 'block', marginBottom: '6px' }}>Email Address</label>
-              <div style={{ position: 'relative' }}>
-                <Mail style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: '#94a3b8' }} />
-                <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Enter your email" style={{ width: '100%', paddingLeft: '40px', paddingRight: '12px', paddingTop: '10px', paddingBottom: '10px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', outline: 'none' }} required />
-              </div>
-            </div>
-            <div>
-              <label style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b', display: 'block', marginBottom: '6px' }}>Password</label>
-              <div style={{ position: 'relative' }}>
-                <Lock style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: '#94a3b8' }} />
-                <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Enter your password" style={{ width: '100%', paddingLeft: '40px', paddingRight: '12px', paddingTop: '10px', paddingBottom: '10px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', outline: 'none' }} required />
-              </div>
-            </div>
-            {error && <p style={{ fontSize: '12px', color: '#dc2626', background: '#fef2f2', padding: '8px', borderRadius: '6px', textAlign: 'center' }}>{error}</p>}
-            <button type="submit" disabled={loading} style={{ width: '100%', background: '#0f172a', color: 'white', padding: '10px', borderRadius: '8px', fontWeight: 600, fontSize: '14px', border: 'none', cursor: 'pointer', opacity: loading ? 0.7 : 1 }}>{loading ? 'Signing in...' : 'Sign In'}</button>
-          </form>
+          <div className="flex-1 bg-white rounded-xl border p-8">
+            {activeTab === 'profile' && (
+              <div><h2 className="font-bold flex gap-2 mb-6"><User className="w-5 h-5" /> Personal Information</h2><div className="space-y-4 max-w-md"><div><label className="text- font-bold uppercase text-slate-500">Full Name</label><input value={fullName} onChange={e=>setFullName(e.target.value)} className="w-full mt-1 px-3 py-2.5 border rounded-lg text-sm" /></div><div><label className="text- font-bold uppercase text-slate-500">Email</label><input value={email} onChange={e=>setEmail(e.target.value)} className="w-full mt-1 px-3 py-2.5 border rounded-lg text-sm" /></div><button onClick={handleSaveProfile} className="flex gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-lg text-sm">{saved?<Check className="w-4 h-4"/>:<Save className="w-4 h-4"/>} {saved?'Saved!':'Save Changes'}</button></div></div>
+            )}
+            {activeTab === 'security' && (
+              <div><h2 className="font-bold flex gap-2 mb-6"><Lock className="w-5 h-5" /> Security</h2><div className="space-y-4 max-w-md"><input type="password" value={currentPass} onChange={e=>setCurrentPass(e.target.value)} placeholder="Current Password" className="w-full px-3 py-2.5 border rounded-lg text-sm" /><input type="password" value={newPass} onChange={e=>setNewPass(e.target.value)} placeholder="New Password" className="w-full px-3 py-2.5 border rounded-lg text-sm" /><input type="password" value={confirmPass} onChange={e=>setConfirmPass(e.target.value)} placeholder="Confirm" className="w-full px-3 py-2.5 border rounded-lg text-sm" /><button onClick={handleSaveSecurity} className="flex gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-lg text-sm"><Save className="w-4 h-4" /> Update Password</button></div></div>
+            )}
+            {activeTab === 'config' && (
+              <div className="text-sm text-slate-600"><p>Portal: Ubay Legislative</p><p>DB: Supabase users table - synced across devices</p></div>
+            )}
+          </div>
         </div>
       </div>
     </div>
