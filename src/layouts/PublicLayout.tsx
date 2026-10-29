@@ -100,30 +100,12 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
 
       <main className="flex-grow bg-slate-50">{children}</main>
       <AIChatbot />
-      <footer className="bg-lgu-blue-900 text-white pt-12 pb-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div>
-            <h3 className="font-serif text-xl font-bold mb-4 text-lgu-gold-500">Sangguniang Bayan</h3>
-            <p className="text-slate-300 text-sm">The legislative body of UBAY, committed to transparency.</p>
-          </div>
-          <div>
-            <h4 className="font-bold mb-4 uppercase text-sm">Quick Links</h4>
-            <ul className="space-y-2 text-sm text-slate-300">
-              <li><Link to="/ordinances" className="hover:text-white">Ordinances</Link></li>
-              <li><Link to="/sessions" className="hover:text-white">Live Sessions</Link></li>
-              <li><Link to="/members" className="hover:text-white">Council Members</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-bold mb-4 uppercase text-sm">Stay Connected</h4>
-            <div className="flex">
-              <input type="email" placeholder="Enter email" className="px-3 py-2 rounded-l-md text-slate-900 w-full" />
-              <button className="bg-lgu-gold-500 text-lgu-blue-900 font-bold px-4 py-2 rounded-r-md">Join</button>
-            </div>
-          </div>
-        </div>
-        <div className="max-w-7xl mx-auto px-4 mt-12 pt-8 border-t border-lgu-blue-800 text-center text-xs text-slate-400">
-          <p>&copy; 2024 Sangguniang Bayan of UBAY. All rights reserved.</p>
+      {/* FOOTER - HINLO - COPYRIGHT RA - COMPACT KAAYO! */}
+      <footer className="bg-lgu-blue-900 text-white py-4">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+          <p className="text-xs text-slate-400">
+            © 2024 Sangguniang Bayan of UBAY. All rights reserved.
+          </p>
         </div>
       </footer>
     </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, Calendar, ArrowRight, Video, Users, Facebook, Youtube } from 'lucide-react';
+import { FileText, Calendar, ArrowRight, Video, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
@@ -17,25 +17,25 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="space-y-12 pb-12 overflow-visible">
-      <section className="bg-lgu-blue-900 text-white relative overflow-hidden">
+    <div className="space-y-0 pb-0 overflow-visible">
+      <section className="bg-slate-900 text-white relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('/SESSION.jpg')] bg-cover bg-center opacity-20"></div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16 relative z-10">
           <div className="max-w-2xl">
-            <h1 className="text-4xl md:text-5xl font-serif font-bold mb-6 leading-tight !text-white">
+            <h1 className="text-4xl md:text-5xl font-serif font-bold mb-4 leading-tight !text-white">
               Legislative Transparency <br />
-              <span className="text-lgu-gold-500">at Your Fingertips</span>
+              <span className="text-yellow-500">at Your Fingertips</span>
             </h1>
-            <p className="text-lg text-slate-300 mb-8">Access ordinances, watch live sessions, and participate in the legislative process of UBAY.</p>
-            <div className="flex flex-col sm:flex-row gap-4 items-center">
-              <Link to="/ordinances" className="bg-lgu-gold-500 text-lgu-blue-900 font-bold px-6 py-3 rounded-lg hover:bg-lgu-gold-600 transform hover:scale-105 transition-all duration-200">Search Ordinances</Link>
-              <Link to="/sessions" className="bg-white/10 border border-white/20 text-white font-bold px-6 py-3 rounded-lg hover:bg-white/20 transform hover:scale-105 transition-all duration-200 flex items-center justify-center"><Video className="w-5 h-5 mr-2" /> Watch Live Session</Link>
+            <p className="text- md:text-sm text-slate-300 mb-5">Access ordinances, watch live sessions, and participate in the legislative process of UBAY.</p>
+            <div className="flex flex-wrap gap-2 items-center">
+              <Link to="/ordinances" className="bg-yellow-500 text-slate-900 font-bold px-5 py-2.5 rounded-full text-xs hover:bg-yellow-400 transform hover:scale-105 transition-all">Search Ordinances</Link>
+              <Link to="/sessions" className="bg-white/10 border border-white/20 text-white font-bold px-5 py-2.5 rounded-full text-xs hover:bg-white/20 flex items-center transform hover:scale-105 transition-all"><Video className="w-4 h-4 mr-2" /> Watch Live Session</Link>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 3 CARDS WITH OVERLAP + LINKS BACK */}
+      {/* 3 CARDS - BULGING EFFECT BALIK! */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10 relative z-20 overflow-visible">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 overflow-visible">
           
@@ -47,7 +47,7 @@ export default function Home() {
               <FileText className="text-yellow-500 w-6 h-6 group-hover:scale-150 group-hover:rotate-12 transition-all duration-300" />
             </div>
             <p className="text-slate-600 text-sm mb-4">Browse recently approved municipal laws and regulations.</p>
-            <Link to="/ordinances" className="inline-flex items-center text-sm font-medium text-slate-900 gap-1 group-hover:gap-2 group-hover:font-bold group-hover:text-lgu-blue-900 transition-all hover:scale-110 origin-left">
+            <Link to="/ordinances" className="inline-flex items-center text-sm font-medium text-slate-900 gap-1 group-hover:gap-2 group-hover:font-bold group-hover:text-yellow-600 transition-all hover:scale-110 origin-left">
               View All <ArrowRight className="w-4 h-4 group-hover:translate-x-1 group-hover:scale-125 transition-all" />
             </Link>
           </div>
@@ -81,18 +81,20 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="bg-slate-100 py-16 mt-12">
+      {/* LIVE - STRAIGHT BOX LANG - DILI HIWI */}
+      <section className="bg-slate-100 py-8 mt-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
               <div className="inline-flex items-center px-3 py-1 rounded-full bg-red-100 text-red-600 text-xs font-bold uppercase tracking-wide mb-4">
                 <span className="w-2 h-2 bg-red-600 rounded-full mr-2 animate-pulse"></span>Live Streaming
               </div>
-              <h2 className="text-3xl font-serif font-bold text-lgu-blue-900 mb-4">Watch Sessions Live</h2>
-              <p className="text-slate-600 mb-6">Transparency is key to good governance. Watch our regular sessions live.</p>
-              <Link to="/sessions" className="bg-lgu-blue-900 text-white px-6 py-3 rounded-lg font-bold hover:bg-lgu-blue-800 inline-block transform hover:scale-105 transition-all">Go to Live Portal</Link>
+              <h2 className="text-3xl font-serif font-bold text-slate-900 mb-4">Watch Sessions Live</h2>
+              <p className="text-slate-600 mb-6 text-">Transparency is key to good governance. Watch our regular sessions live.</p>
+              <Link to="/sessions" className="bg-slate-900 text-white px-6 py-3 rounded-lg font-bold text-xs hover:bg-slate-800 inline-block transform hover:scale-105 transition-all">Go to Live Portal</Link>
             </div>
-            <div className="bg-white p-4 rounded-xl shadow-xl rotate-1 hover:rotate-0 transition-transform duration-500">
+            {/* VIDEO BOX - STRAIGHT RA - WALAY ROTATE */}
+            <div className="bg-white p-4 rounded-xl shadow-xl rotate-0 transform-none hover:shadow-2xl hover:scale-[1.02] transition-all duration-300">
               <div className="aspect-video bg-slate-900 rounded-lg flex items-center justify-center text-white"><Video className="w-12 h-12 opacity-50" /></div>
             </div>
           </div>

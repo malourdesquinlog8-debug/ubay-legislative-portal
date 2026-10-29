@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 
 interface Settings {
   logo_url: string;
@@ -24,10 +25,14 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const fetchSettings = async () => {
     try {
-      const res = await fetch('/api/settings');
-      if (res.ok) {
-        const data = await res.json();
-        setSettings(data);
+      setIsLoading(true);
+      const { data, error } = await supabase.from('settings').select('*').limit(1).single();
+      if (!error && data) {
+        setSettings({
+          logo_url: data.logo_url || '/sblogo.jpg',
+          icon_url: data.icon_url || '/sblogo.jpg',
+          site_title: data.site_title || 'Sangguniang Bayan - UBAY, Bohol',
+        });
       }
     } catch (err) {
       console.error('Failed to fetch settings:', err);
@@ -36,26 +41,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  useEffect(() => {
-    fetchSettings();
-  }, []);
-
-  useEffect(() => {
-    if (settings.site_title) {
-      document.title = settings.site_title;
-    }
-    if (settings.icon_url) {
-      const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
-      if (link) {
-        link.href = settings.icon_url;
-      } else {
-        const newLink = document.createElement('link');
-        newLink.rel = 'icon';
-        newLink.href = settings.icon_url;
-        document.head.appendChild(newLink);
-      }
-    }
-  }, [settings]);
+  useEffect(() => { fetchSettings(); }, []);
 
   return (
     <SettingsContext.Provider value={{ settings, refreshSettings: fetchSettings, isLoading }}>
@@ -66,8 +52,6 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
 export function useSettings() {
   const context = useContext(SettingsContext);
-  if (context === undefined) {
-    throw new Error('useSettings must be used within a SettingsProvider');
-  }
+  if (!context) throw new Error('useSettings must be used within a SettingsProvider');
   return context;
 }
