@@ -78,7 +78,7 @@ export default function Ordinances() {
   const cleanTitle = (title: string) => { if (!title) return ''; return title.replace(/^[\s\-–—•\u00A0]+/, '').replace(/\s+/g, ' ').trim(); };
 
   return (
-    <div className="min-h-screen bg-transparent py-6">
+    <div className="min-h-screen bg-transparent py-6 overflow-visible">
       <div className="max-w-[95%] mx-auto px-2 md:px-4">
         <div className="mb-6 max-w-5xl mx-auto">
           <h1 className="text-2xl md:text-3xl font-serif font-bold text-slate-900 flex items-center gap-2"><FileText className="w-6 h-6" /> Legislative Documents</h1>
@@ -100,21 +100,26 @@ export default function Ordinances() {
           </div>
         </div>
 
-        <div className="max-w-5xl mx-auto space-y-3">
+        <div className="max-w-5xl mx-auto space-y-4 overflow-visible">
           {loading ? <div className="text-center py-12"><div className="animate-spin w-6 h-6 border-4 border-slate-900 border-t-transparent rounded-full mx-auto"></div></div> :
             filtered.map((item) => (
-              <div key={item.id} className="group bg-white/90 backdrop-blur-sm border border-slate-200 rounded-xl p-4 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-slate-900/20 cursor-pointer">
-                <div className="flex justify-between items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    {item.ordinance_no && <div className="mb-1.5"><span className="font-mono text- font-bold text-blue-900 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full">{item.ordinance_no}</span></div>}
-                    <h3 className="font-bold text-slate-800 leading-[1.6] text- line-clamp-2" style={{ textAlign: 'justify', textIndent: '0px', hyphens: 'auto' as any }}>{cleanTitle(item.title)}</h3>
-                    <div className="flex flex-wrap items-center gap-1.5 mt-2">
+              <div key={item.id} className="group !transform-gpu bg-white/90 backdrop-blur-sm border border-slate-200 rounded-xl p-4 shadow-sm transition-all duration-300 ease-out will-change-transform hover:!scale-[1.02] hover:!-translate-y-1 hover:shadow-[0_20px_40px_rgba(0,0,0,0.15)] hover:border-slate-900/20 cursor-pointer overflow-visible">
+                <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-3">
+                  <div className="flex-1 min-w-0 order-2 md:order-1">
+                    {item.ordinance_no && <div className="mb-2"><span className="font-mono text- font-bold text-blue-900 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-full">{item.ordinance_no}</span></div>}
+                    {/* FULL TITLE - DESKTOP + MOBILE - WALAY PUTOL - MABASA TANAN */}
+                    <h3 className="font-bold text-slate-900 text- md:text- leading-[1.5] text-left break-words whitespace-normal">
+                      {cleanTitle(item.title)}
+                    </h3>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-3">
                       <span className="flex items-center gap-1 text- text-slate-500"><User className="w-3 h-3" />{item.author || 'SB Ubay'}</span>
-                      <span className="px-2 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full text- font-bold">{item.status || 'APPROVED'}</span>
-                      <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-">{item.legislation_type || item.type || 'Ordinance'}</span>
+                      <span className="px-2.5 py-1 bg-green-50 text-green-700 border border-green-200 rounded-full text- font-bold">{item.status || 'APPROVED'}</span>
+                      <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-">{item.legislation_type || item.type || 'Ordinance'}</span>
                     </div>
                   </div>
-                  <button onClick={() => handleViewPdf(item)} className="text- font-bold text-slate-700 hover:text-white border border-slate-300 hover:border-slate-900 hover:bg-slate-900 px-3 py-1.5 rounded-full flex items-center gap-1 flex-shrink-0 transition-all"><Eye className="w-3 h-3" /> View PDF</button>
+                  <button onClick={() => handleViewPdf(item)} className="order-1 md:order-2 w-full md:w-auto text- font-bold text-slate-700 hover:text-white bg-slate-50 md:bg-transparent border border-slate-300 hover:border-slate-900 hover:bg-slate-900 px-4 py-2 md:py-1.5 rounded-full flex items-center justify-center md:justify-start gap-1.5 flex-shrink-0 transition-all hover:!scale-110 hover:shadow-lg">
+                    <Eye className="w-4 h-4 md:w-3 md:h-3" /> View PDF
+                  </button>
                 </div>
               </div>
             ))}
@@ -124,7 +129,7 @@ export default function Ordinances() {
           <div className="text-center text- text-slate-500 bg-white/80 backdrop-blur-sm border rounded-full px-3 py-1 shadow-sm">
             Showing <span className="font-bold text-slate-900">{filtered.length}</span> of <span className="font-bold">{legislations.length}</span> legislations
           </div>
-          <div className="text- text-slate-400">© Sangguniang Bayan of Ubay - Legislative Portal</div>
+          <div className="text- text-slate-400 text-center">© Sangguniang Bayan of Ubay - Legislative Portal</div>
         </div>
       </div>
 
@@ -165,7 +170,7 @@ export default function Ordinances() {
         <div className="fixed inset-0 bg-black/60 z-[10000] flex items-center justify-center p-4" onContextMenu={(e) => e.preventDefault()}>
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl">
             <div className="flex justify-between items-center mb-4"><h3 className="font-bold">Request a Copy</h3><button onClick={() => setShowRequestForm(false)} className="w-7 h-7 bg-slate-100 rounded-full flex items-center justify-center"><X className="w-4 h-4" /></button></div>
-            <div className="bg-slate-50 p-3 rounded-xl mb-4 text-xs"><p className="font-mono font-bold">{selectedOrdinance?.ordinance_no}</p><p className="mt-1 text-justify" style={{ textAlign: 'justify', textIndent: '0' }}>{cleanTitle(selectedOrdinance?.title || '')}</p></div>
+            <div className="bg-slate-50 p-3 rounded-xl mb-4 text-xs"><p className="font-mono font-bold">{selectedOrdinance?.ordinance_no}</p><p className="mt-1 text-left">{cleanTitle(selectedOrdinance?.title || '')}</p></div>
             <div className="space-y-3">
               <input value={requestForm.name} onChange={e => setRequestForm({...requestForm, name: e.target.value})} placeholder="Full Name *" className="w-full border rounded-xl px-3 py-2.5 text-sm" />
               <input value={requestForm.email} onChange={e => setRequestForm({...requestForm, email: e.target.value})} placeholder="Email *" className="w-full border rounded-xl px-3 py-2.5 text-sm" />
