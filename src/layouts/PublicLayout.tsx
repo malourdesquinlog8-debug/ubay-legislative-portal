@@ -20,7 +20,16 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
   ];
 
   return (
-    <div className="min-h-screen flex flex-col font-sans">
+    <div 
+      className="min-h-screen flex flex-col font-sans"
+      style={{
+        backgroundImage: `linear-gradient(rgba(235, 235, 180, 0.88), rgba(235, 235, 180, 0.88)), url('/SESSION.jpg')`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
       <div className="bg-lgu-blue-900 text-white py-2 px-4 text-sm">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-4">
@@ -98,7 +107,8 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         )}
       </header>
 
-      <main className="flex-grow bg-slate-50">{children}</main>
+      {/* MAIN - TRANSPARENT PARA MAKITA GLOBAL BG */}
+      <main className="flex-grow bg-transparent">{children}</main>
       <AIChatbot />
       {/* FOOTER - HINLO - COPYRIGHT RA - COMPACT KAAYO! */}
       <footer className="bg-lgu-blue-900 text-white py-4">
