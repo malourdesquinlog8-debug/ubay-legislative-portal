@@ -78,14 +78,14 @@ export default function Ordinances() {
   const cleanTitle = (title: string) => { if (!title) return ''; return title.replace(/^[\s\-–—•\u00A0]+/, '').replace(/\s+/g, ' ').trim(); };
 
   return (
-    <div className="min-h-screen bg-slate-50 py-6">
+    <div className="min-h-screen bg-transparent py-6">
       <div className="max-w-[95%] mx-auto px-2 md:px-4">
         <div className="mb-6 max-w-5xl mx-auto">
           <h1 className="text-2xl md:text-3xl font-serif font-bold text-slate-900 flex items-center gap-2"><FileText className="w-6 h-6" /> Legislative Documents</h1>
           <p className="text-slate-500 mt-1 text-sm">Official Ordinances and Resolutions of the Municipality of Ubay</p>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border p-3 mb-5 max-w-5xl mx-auto flex flex-col md:flex-row gap-2">
+        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border p-3 mb-5 max-w-5xl mx-auto flex flex-col md:flex-row gap-2">
           <div className="flex-1 flex items-center gap-2 bg-slate-50 border rounded-lg px-3">
             <Search className="w-4 h-4 text-slate-400" />
             <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search ordinance, resolution..." className="flex-1 bg-transparent py-2 outline-none text-sm" />
@@ -103,7 +103,7 @@ export default function Ordinances() {
         <div className="max-w-5xl mx-auto space-y-3">
           {loading ? <div className="text-center py-12"><div className="animate-spin w-6 h-6 border-4 border-slate-900 border-t-transparent rounded-full mx-auto"></div></div> :
             filtered.map((item) => (
-              <div key={item.id} className="group bg-white border border-slate-200 rounded-xl p-4 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-slate-900/20 cursor-pointer">
+              <div key={item.id} className="group bg-white/90 backdrop-blur-sm border border-slate-200 rounded-xl p-4 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-slate-900/20 cursor-pointer">
                 <div className="flex justify-between items-start gap-3">
                   <div className="flex-1 min-w-0">
                     {item.ordinance_no && <div className="mb-1.5"><span className="font-mono text- font-bold text-blue-900 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full">{item.ordinance_no}</span></div>}
@@ -121,7 +121,7 @@ export default function Ordinances() {
         </div>
 
         <div className="mt-6 flex flex-col items-center gap-1.5 max-w-5xl mx-auto">
-          <div className="text-center text- text-slate-500 bg-white border rounded-full px-3 py-1 shadow-sm">
+          <div className="text-center text- text-slate-500 bg-white/80 backdrop-blur-sm border rounded-full px-3 py-1 shadow-sm">
             Showing <span className="font-bold text-slate-900">{filtered.length}</span> of <span className="font-bold">{legislations.length}</span> legislations
           </div>
           <div className="text- text-slate-400">© Sangguniang Bayan of Ubay - Legislative Portal</div>

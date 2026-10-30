@@ -1,125 +1,115 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export default function News() {
   const [news, setNews] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [category, setCategory] = useState('All');
   const [currentIndex, setCurrentIndex] = useState(0);
-  const ITEMS_PER_PAGE = 3;
+  const [search, setSearch] = useState('');
+  const itemsPerPage = 3;
 
   useEffect(() => {
-    const fetchNews = async () => {
-      setLoading(true);
-      try {
-        const { data, error } = await supabase.from('news').select('*').order('created_at', { ascending: false });
-        if (error) throw error;
-        if (data) setNews(data);
-      } catch (err) { console.error(err); } finally { setLoading(false); }
-    };
-    fetchNews();
+    fetch('/api/news')
+      .then(res => res.json())
+      .then(data => setNews(data))
+      .catch(() => {
+        // FALLBACK DATA PARA TESTING
+        setNews([
+          { id: 1, title: 'TAPAL FIESTA CELEBRATION', author: 'SB SEC', category: 'Event', image: 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=800', created_at: '2026-10-27', description: 'TAPAL FIESTA CELEBRATION' },
+          { id: 2, title: 'TAPON FIESTA', author: 'MPIO OFFICE', category: 'News', image: 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=800', created_at: '2026-10-27', description: 'TAPON FIESTA CELEBRATION' },
+          { id: 3, title: 'UNION TOWN FIESTA', author: 'HRMO OFFICE', category: 'Event', image: 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=800', created_at: '2026-10-27', description: 'UNION TOWN FIESTA' },
+          { id: 4, title: 'UBAY FOUNDATION DAY', author: 'MPIO OFFICE', category: 'News', image: 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=800', created_at: '2026-10-27', description: 'UBAY FOUNDATION CELEBRATION' },
+          { id: 5, title: 'BARANGAY CLEAN UP', author: 'SB SEC', category: 'Event', image: 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=800', created_at: '2026-10-27', description: 'CLEAN UP DRIVE' },
+        ]);
+      });
   }, []);
 
-  // Reset index when filter changes
-  useEffect(() => { setCurrentIndex(0); }, [search, category]);
+  const filteredNews = news.filter(n => n.title.toLowerCase().includes(search.toLowerCase()));
+  const totalPages = Math.ceil(filteredNews.length / itemsPerPage);
+  const visibleNews = filteredNews.slice(currentIndex * itemsPerPage, (currentIndex + 1) * itemsPerPage);
 
-  const filtered = news.filter((n: any) => {
-    const matchSearch = n.title?.toLowerCase().includes(search.toLowerCase()) || n.content?.toLowerCase().includes(search.toLowerCase());
-    const matchCategory = category === 'All' || n.category === category;
-    return matchSearch && matchCategory;
-  });
-
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
-  const start = currentIndex * ITEMS_PER_PAGE;
-  const visibleNews = filtered.slice(start, start + ITEMS_PER_PAGE);
-
-  const next = () => {
-    if (currentIndex < totalPages - 1) setCurrentIndex(currentIndex + 1);
-    else setCurrentIndex(0); // loop back
-  };
-
-  const prev = () => {
-    if (currentIndex > 0) setCurrentIndex(currentIndex - 1);
-    else setCurrentIndex(totalPages - 1); // loop to end
-  };
+  const next = () => setCurrentIndex((prev) => (prev + 1) % totalPages);
+  const prev = () => setCurrentIndex((prev) => (prev - 1 + totalPages) % totalPages);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-6 lg:px-16 py-8">
+    <div className="max-w-7xl mx-auto px-4 py-8 bg-transparent min-h-screen">
+      <h1 className="text-3xl font-serif font-bold text-slate-900">News & Events</h1>
+      <p className="text-sm text-slate-500 mt-1">Stay updated with latest happenings in UBAY.</p>
 
-        <div className="mb-8">
-          <h1 className="text-4xl font-extrabold text-gray-900">News & Events</h1>
-          <p className="text-gray-600 mt-2">Stay updated with latest happenings in UBAY.</p>
-        </div>
-
-        <div className="bg-white border rounded-xl p-4 mb-10 flex gap-4 shadow-sm">
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search news and events..." className="flex-1 px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          <select value={category} onChange={(e) => setCategory(e.target.value)} className="px-4 py-2.5 border rounded-lg bg-white font-medium">
-            <option value="All">All Categories</option><option value="News">News</option><option value="Event">Event</option>
-          </select>
-        </div>
-
-        {loading ? (
-          <div className="grid md:grid-cols-3 gap-6">{[1,2,3].map(i => <div key={i} className="h-80 bg-gray-200 animate-pulse rounded-xl" />)}</div>
-        ) : filtered.length === 0 ? (
-          <div className="bg-white border border-dashed rounded-xl p-16 text-center"><p className="font-bold">No news found</p></div>
-        ) : (
-          <div className="relative">
-
-            {/* LEFT ARROW - PROPER */}
-            <button
-              onClick={prev}
-              className="absolute -left-4 lg:-left-16 top-1/2 -translate-y-1/2 z-10 bg-blue-900 hover:bg-blue-800 text-white w-12 h-12 lg:w-14 lg:h-14 rounded-full flex items-center justify-center shadow-xl hover:shadow-2xl hover:scale-110 transition-all duration-300"
-              aria-label="Previous"
-            >
-              <span className="text-3xl font-bold leading-none">‹</span>
-            </button>
-
-            {/* RIGHT ARROW - PROPER */}
-            <button
-              onClick={next}
-              className="absolute -right-4 lg:-right-16 top-1/2 -translate-y-1/2 z-10 bg-blue-900 hover:bg-blue-800 text-white w-12 h-12 lg:w-14 lg:h-14 rounded-full flex items-center justify-center shadow-xl hover:shadow-2xl hover:scale-110 transition-all duration-300"
-              aria-label="Next"
-            >
-              <span className="text-3xl font-bold leading-none">›</span>
-            </button>
-
-            {/* 3 CARDS ONLY */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 transition-all duration-500">
-              {visibleNews.map((item: any) => (
-                <div key={item.id} className="group bg-white border rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-300">
-                  <div className="relative overflow-hidden h-56">
-                    <img src={item.image_url || 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800'} alt={item.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" onError={(e: any) => e.target.src = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800'} />
-                    <span className="absolute top-3 left-3 px-3 py-1 bg-white/95 rounded-full text-xs font-bold text-blue-900 shadow">{item.category}</span>
-                  </div>
-                  <div className="p-5">
-                    <h3 className="font-bold text-lg line-clamp-2 group-hover:text-blue-900 transition-colors">{item.title}</h3>
-                    <p className="text-sm text-gray-600 mt-2 line-clamp-2">{item.content}</p>
-                    <div className="flex justify-between items-center mt-4 pt-4 border-t">
-                      <p className="text-xs font-semibold">{item.author}</p>
-                      <p className="text-xs text-gray-400">{new Date(item.created_at).toLocaleDateString()}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* PAGE INDICATOR */}
-            <div className="flex items-center justify-center gap-4 mt-8">
-              <p className="text-sm text-gray-500 font-medium">
-                Page {currentIndex + 1} of {totalPages} • Showing {visibleNews.length} of {filtered.length} news
-              </p>
-              <div className="flex gap-2">
-                {Array.from({ length: totalPages }).map((_, idx) => (
-                  <button key={idx} onClick={() => setCurrentIndex(idx)} className={`h-2 rounded-full transition-all duration-300 ${idx === currentIndex ? 'bg-blue-900 w-8' : 'bg-gray-300 w-2 hover:bg-gray-400'}`} />
-                ))}
-              </div>
-            </div>
-
-          </div>
-        )}
+      {/* SEARCH BAR */}
+      <div className="border border-black rounded-xl p-3 flex gap-2 mt-6 mb-8 bg-white">
+        <input
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setCurrentIndex(0); }}
+          placeholder="Search news and events..."
+          className="flex-1 border border-black rounded-lg px-4 py-2 text-sm outline-none"
+        />
+        <select className="border border-black rounded-lg px-3 py-2 text-sm">
+          <option>All Categories</option>
+          <option>News</option>
+          <option>Event</option>
+        </select>
       </div>
+
+      {/* SLIDER WRAPPER - RELATIVE + PX-12 PARA ARROW DILI MA TABONAN */}
+      <div className="relative px-12 overflow-visible">
+
+        {/* LEFT ARROW - SENTRO NA - TOP 1/2 */}
+        <button
+          onClick={prev}
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-30 bg-[#1e3a8a] hover:bg-blue-900 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-all"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+
+        {/* CARDS GRID */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {visibleNews.map((item: any) => (
+            <Link to={`/news/${item.id}`} key={item.id} className="group bg-white border border-black rounded-xl overflow-hidden shadow-sm hover:shadow-xl hover:scale-[1.02] transition-all duration-300">
+              <div className="relative h-48 bg-slate-100 overflow-hidden">
+                <img src={item.image} alt={item.title} className="w-full h-full object-cover group-hover:scale-110 transition-all duration-500" />
+                <span className="absolute top-3 left-3 bg-white text- font-bold px-3 py-1 rounded-full border shadow-sm">
+                  {item.category || 'Event'}
+                </span>
+              </div>
+              <div className="p-4">
+                <h3 className="font-bold text- uppercase line-clamp-2 leading-tight">{item.title}</h3>
+                <p className="text-xs text-gray-400 mt-1 uppercase">{item.description || item.title}</p>
+                <div className="flex justify-between mt-4 pt-3 border-t border-black">
+                  <p className="text-xs font-semibold">{item.author}</p>
+                  <p className="text-xs text-gray-400">{new Date(item.created_at).toLocaleDateString('en-GB')}</p>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+
+        {/* RIGHT ARROW - SENTRO NA - TOP 1/2 */}
+        <button
+          onClick={next}
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-30 bg-[#1e3a8a] hover:bg-blue-900 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-all"
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
+
+      </div>
+
+      {/* PAGE INDICATOR */}
+      <div className="flex items-center justify-center gap-4 mt-8">
+        <p className="text-sm text-gray-500 font-medium">
+          Page {currentIndex + 1} of {totalPages} • Showing {visibleNews.length} of {filteredNews.length} news
+        </p>
+        <div className="flex gap-2">
+          {Array.from({ length: totalPages }).map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => setCurrentIndex(idx)}
+              className={`h-2 rounded-full transition-all ${idx === currentIndex ? 'w-6 bg-[#1e3a8a]' : 'w-2 bg-gray-300'}`}
+            />
+          ))}
+        </div>
+      </div>
+
     </div>
   );
 }
