@@ -80,8 +80,8 @@ export default function Contact() {
                   <Phone className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 uppercase text-xs tracking-wider mb-1">Phone Number</h3>
-                  <p className="text-slate-600">(038) 417-5000</p>
+                  <h3 className="font-bold text-slate-900 uppercase text-xs tracking-wider mb-1"></h3>
+                  <p className="text-slate-600"></p>
                 </div>
               </div>
 
