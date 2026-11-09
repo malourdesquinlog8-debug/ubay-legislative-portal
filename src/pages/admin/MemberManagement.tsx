@@ -1,5 +1,7 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { uploadToR2 } from "../../utils/r2Upload";
 
 export default function MemberManagement() {
   const [members, setMembers] = useState<any[]>([]);
@@ -27,23 +29,9 @@ export default function MemberManagement() {
       let photoUrl = "";
 
       // Upload photo if naa
-      if (photoFile) {
-        const fileName = `${Date.now()}_${photoFile.name}`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('members-photos')
-          .upload(fileName, photoFile);
-        
-        if (uploadError) {
-          setMsg(`Upload Error: ${uploadError.message}`);
-          alert(`Upload Error: ${uploadError.message}`);
-          return;
-        }
-        
-        const { data: urlData } = supabase.storage
-          .from('members-photos')
-          .getPublicUrl(uploadData.path);
-        photoUrl = urlData.publicUrl;
-      }
+     if (photoFile) {
+  photoUrl = await uploadToR2(photoFile, "members");
+}
 
       const { data, error } = await supabase.from('sb_members').insert([{
         name: form.name,

@@ -56,7 +56,7 @@ export default function AIChatbot() {
         // INTELLIGENT FALLBACK
         const lower = userMessage.toLowerCase();
         if (lower.includes('franchise')) {
-          aiResponse = `**About Franchise Resolution in Ubay:**\n\nFranchise resolutions grant authority to operate tricycles, e-trikes, or business operations within Ubay.\n\nI searched the database for "${userMessage}" but no exact match was found. This might be:\n- Ordinance 05-2026 (example)\n- Or a resolution under Sangguniang Bayan sessions\n\n**What to do:**\n- Check Legislation page: /ordinances\n- Search keyword: "tricycle" or "business"\n- Contact SB Secretariat: sanggunianbayanubay@gmail.com / (038) 417-5000\n\nDo you want me to search for "tricycle" instead?`;
+          aiResponse = `**About Franchise Resolution in Ubay:**\n\nFranchise resolutions grant authority to operate tricycles, e-trikes, or business operations within Ubay.\n\nI searched the database for "${userMessage}" but no exact match was found. This might be:\n- Ordinance 05-2026 (example)\n- Or a resolution under Sangguniang Bayan sessions\n\n**What to do:**\n- Check Legislation page: /ordinances\n- Search keyword: "tricycle" or "business"\n- Contact SB Secretariat: sanggunianbayanubay@gmail.com \n\nDo you want me to search for "tricycle" instead?`;
         } else if (lower.includes('hello') || lower.includes('hi') || lower.includes('kumusta')) {
           aiResponse = `Hello! 👋 I can help you find:\n\n- Ordinances (franchise, traffic, tax, health)\n- Resolutions\n- Session schedules\n- SB Members\n\nJust type keywords like "franchise", "tricycle", "tax", or an ordinance number!`;
         } else {
@@ -67,7 +67,7 @@ export default function AIChatbot() {
       setMessages(prev => [...prev, { role: 'ai', content: aiResponse }]);
     } catch (error: any) {
       console.error('AI Error:', error);
-      setMessages(prev => [...prev, { role: 'ai', content: `Sorry, I encountered an error: ${error.message}. Please try again or contact our office at (038) 417-5000.` }]);
+      setMessages(prev => [...prev, { role: 'ai', content: `Sorry, I encountered an error: ${error.message}. Please try again or contact our office at sanggunianbayanubay@gmail.com.` }]);
     } finally {
       setIsLoading(false);
     }

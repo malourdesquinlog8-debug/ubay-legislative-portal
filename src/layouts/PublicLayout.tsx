@@ -31,7 +31,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       }}
     >
       <div className="bg-lgu-blue-900 text-white py-2 px-4 text-sm">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
+        <div className="max-w-[1720px] mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-4">
             <span className="flex items-center"><Phone className="w-3 h-3 mr-1" /></span>
             <span className="flex items-center"><Mail className="w-3 h-3 mr-1" /> sanggunianbayanubay@gmail.com</span>
@@ -45,7 +45,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       </div>
 
       <header className="bg-white shadow-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-24">
             <div className="flex items-center">
               <img src={settings.logo_url} alt="SB Logo" className="w-16 h-16 rounded-full mr-4 shadow-sm object-cover" />
@@ -92,7 +92,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       <AIChatbot />
       
       <footer className="bg-[#0f172a] text-white mt-10">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">
+        <div className="max-w-[1720px] mx-auto px-4 md:px-8 py-8">
           <div className="flex items-start gap-4 md:gap-6">
             <img src="/republika.png" alt="Republika" className="w-14 h-14 md:w-20 md:h-20 object-contain flex-shrink-0 mt-1" />
             <div className="text-left">
@@ -121,7 +121,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
           </div>
         </div>
         <div className="border-t border-white/10">
-          <div className="max-w-7xl mx-auto px-4 py-3 text-center text- text-gray-400">
+          <div className="max-w-[1720px] mx-auto px-4 py-3 text-center text- text-gray-400">
             © 2026 Sangguniang Bayan of Ubay. All rights reserved.
           </div>
         </div>

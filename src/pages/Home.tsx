@@ -20,7 +20,7 @@ export default function Home() {
     <div className="space-y-0 pb-20 overflow-visible bg-transparent">
       <section className="bg-slate-900/80 text-white relative">
         <div className="absolute inset-0 bg-[url('/SESSION.jpg')] bg-cover bg-center opacity-20"></div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16 relative z-10">
+        <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16 relative z-10">
           <div className="max-w-2xl">
             <h1 className="text-4xl md:text-5xl font-serif font-bold mb-4 leading-tight !text-white">
               Legislative Transparency <br />
@@ -36,7 +36,7 @@ export default function Home() {
       </section>
 
       {/* OVERFLOW VISIBLE PARA BULGING DILI MA CUT */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10 relative z-20 overflow-visible !overflow-visible">
+      <section className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 -mt-10 relative z-20 overflow-visible !overflow-visible">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 overflow-visible !overflow-visible pt-6 pb-10">
           
           <div className="!transform-gpu group relative bg-white p-6 rounded-xl shadow-lg border-t-4 border-white transition-all duration-300 ease-out will-change-transform hover:!scale-[1.12] hover:!-translate-y-4 hover:!translate-x-2 hover:!z-[50] hover:!shadow-[0_25px_50px_-12px_rgba(0,0,0,0.4)] hover:!rotate-1">
@@ -70,7 +70,7 @@ export default function Home() {
       </section>
 
       <section className="bg-transparent py-8 mt-2 overflow-visible">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 overflow-visible">
+        <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 overflow-visible">
           <div className="grid md:grid-cols-2 gap-12 items-center bg-white/90 p-6 rounded-xl shadow-sm overflow-visible">
             <div className="overflow-visible">
               <div className="inline-flex items-center px-3 py-1 rounded-full bg-red-100 text-red-600 text-xs font-bold uppercase tracking-wide mb-4">

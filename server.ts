@@ -227,6 +227,32 @@ app.get('/api/activity-logs', (req, res) => { res.json(db.prepare('SELECT * FROM
 app.get('/api/logs', (req, res) => { res.json(db.prepare('SELECT * FROM activity_logs ORDER BY created_at DESC LIMIT 50').all()); });
 app.get('/api/users', (req, res) => { res.json(db.prepare('SELECT id, email, name, role, created_at FROM users').all()); });
 
+app.delete('/api/admin/contact/:id', (req, res) => {
+  try {
+    db.prepare('DELETE FROM contact_messages WHERE id = ?').run(req.params.id);
+    res.json({ success: true });
+  } catch (err: any) { console.error(err); res.status(500).json({ message: err.message }); }
+});
+app.patch('/api/admin/contact/:id', (req, res) => {
+  try {
+    const { status } = req.body;
+    db.prepare('UPDATE contact_messages SET status = ? WHERE id = ?').run(status, req.params.id);
+    res.json({ success: true });
+  } catch (err: any) { console.error(err); res.status(500).json({ message: err.message }); }
+});
+
+app.post('/api/contact', (req, res) => {
+  try {
+    const { full_name, name, email, subject, message } = req.body;
+const finalName = full_name || name || "Anonymous";
+const finalMessage = subject ? subject + " - " + message : message;
+const result = db.prepare('INSERT INTO contact_messages (name, email, message, status) VALUES (?, ?, ?, ?)').run(finalName, email, finalMessage, 'Unread');
+    res.json({ success: true, id: result.lastInsertRowid });
+  } catch (err: any) { console.error(err); res.status(500).json({ message: err.message }); }
+});
+app.get('/api/admin/contact', (req, res) => { res.json(db.prepare('SELECT * FROM contact_messages ORDER BY created_at DESC').all()); });
+
+
 // STATS
 app.get('/api/stats', (req, res) => {
   const legCount = (db.prepare('SELECT COUNT(*) as c FROM legislations').get() as any).c;

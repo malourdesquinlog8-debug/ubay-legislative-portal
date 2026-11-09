@@ -1,3 +1,4 @@
+import { uploadToR2 } from "../../utils/r2Upload";
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 
@@ -23,32 +24,21 @@ export default function NewsManagement() {
   useEffect(() => { fetchNews(); }, [fetchNews]);
 
   const handleImageUpload = async (e: any) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `${fileName}`;
-
-      console.log('Uploading:', filePath);
-
-      const { error: uploadError } = await supabase.storage.from('news-images').upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage.from('news-images').getPublicUrl(filePath);
-
-      console.log('Uploaded URL:', data.publicUrl);
-      setFormData({ ...formData, image_url: data.publicUrl });
-      alert('Image uploaded! ' + data.publicUrl);
-    } catch (err: any) {
-      console.error('Upload failed:', err);
-      alert('Upload failed: ' + err.message + '\n\nMake sure bucket news-images exists and is public!');
-    } finally {
-      setUploading(false);
-    }
-  };
+  const file = e.target.files?.[0];
+  if (!file) return;
+  setUploading(true);
+  try {
+    const publicUrl = await uploadToR2(file, "news");
+    console.log('Uploaded URL:', publicUrl);
+    setFormData({ ...formData, image_url: publicUrl });
+    alert('Image uploaded! ' + publicUrl);
+  } catch (err: any) {
+    console.log('Upload failed:', err);
+    alert('Upload failed: ' + err.message);
+  } finally {
+    setUploading(false);
+  }
+};
 
   const handleOpenModal = (item: any = null) => {
     if (item) {

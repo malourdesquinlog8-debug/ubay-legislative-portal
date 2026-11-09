@@ -1,3 +1,4 @@
+import { uploadToR2 } from "../../utils/r2Upload";
 import { useState, useEffect } from 'react';
 import { FileText, Plus, Search, Edit, Trash2, Upload, X, Calendar, User, Eye } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -40,17 +41,14 @@ export default function LegislativeManagement() {
 
   const handleCloseModal = () => { setShowModal(false); setEditingItem(null); setUploading(false); };
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    setUploading(true);
-    try {
-      const fileName = `${Date.now()}-${file.name}`;
-      const { data, error } = await supabase.storage.from('legislations').upload(fileName, file, { upsert: true });
-      if (error) throw error;
-      const { data: urlData } = supabase.storage.from('legislations').getPublicUrl(data.path);
-      setFormData(prev => ({ ...prev, pdf_url: urlData.publicUrl, file_url: urlData.publicUrl, document_url: urlData.publicUrl }));
-    } catch (err: any) { alert('Upload failed: ' + err.message); }
-    setUploading(false);
-  };
+  const file = e.target.files?.[0]; if (!file) return;
+  setUploading(true);
+  try {
+    const publicUrl = await uploadToR2(file, "ordinances");
+    setFormData((prev) => ({ ...prev, pdf_url: publicUrl, file_url: publicUrl, document_url: publicUrl }));
+  } catch (err: any) { alert('Upload failed: ' + err.message); }
+  setUploading(false);
+};
 
   const handleSave = async () => {
     if (!formData.ordinance_no || !formData.title) { alert('Number and Title required!'); return; }

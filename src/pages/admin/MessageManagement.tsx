@@ -68,12 +68,13 @@ export default function MessageManagement() {
   };
 
   const filteredMessages = messages.filter(m => {
-    const matchesSearch = m.full_name.toLowerCase().includes(search.toLowerCase()) || 
-                         m.subject.toLowerCase().includes(search.toLowerCase()) ||
-                         m.email.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = filterStatus === 'All' || m.status === filterStatus;
-    return matchesSearch && matchesStatus;
-  });
+  const nameText = (m.full_name || m.name || '').toLowerCase();
+  const subjectText = (m.subject || m.message || '').toLowerCase();
+  const emailText = (m.email || '').toLowerCase();
+  const matchesSearch = nameText.includes(search.toLowerCase()) || subjectText.includes(search.toLowerCase()) || emailText.includes(search.toLowerCase());
+  const matchesStatus = filterStatus === 'All' || m.status === filterStatus;
+  return matchesSearch && matchesStatus;
+});
 
   return (
     <div className="space-y-6">
@@ -123,13 +124,13 @@ export default function MessageManagement() {
                       setSelectedMessage(msg);
                       if (msg.status === 'Unread') handleUpdateStatus(msg.id, 'Read');
                     }}
-                    className={`w-full text-left p-4 hover:bg-slate-50 transition-colors flex flex-col gap-1 ${selectedMessage?.id === msg.id ? 'bg-lgu-blue-50 border-l-4 border-lgu-blue-900' : ''}`}
+                    className={`w-full text-left p-4 cursor-pointer transition-all duration-200 flex flex-col gap-1 ${selectedMessage?.id === msg.id ? 'bg-blue-50 border-l-4 border-lgu-blue-900 shadow-md scale-[1.02] font-bold' : 'hover:bg-slate-50 border-l-4 border-transparent'}`}
                   >
                     <div className="flex justify-between items-start">
-                      <span className="font-bold text-slate-900 text-sm truncate pr-2">{msg.full_name}</span>
+                      <span className="font-bold text-slate-900 text-sm truncate pr-2">{msg.full_name || msg.name || 'No Name'}</span>
                       <span className="text-[10px] text-slate-400 whitespace-nowrap">{format(new Date(msg.created_at), 'MMM d')}</span>
                     </div>
-                    <span className="text-xs font-medium text-lgu-blue-900 truncate">{msg.subject}</span>
+                    <span className="text-xs font-medium text-lgu-blue-900 truncate">{msg.subject || msg.message || ''}</span>
                     <div className="flex items-center gap-2 mt-1">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                         msg.status === 'Unread' ? 'bg-blue-100 text-blue-700' :
