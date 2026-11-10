@@ -1,3 +1,4 @@
+import { supabase } from '../../lib/supabase';
 import { useState, useEffect, useCallback } from 'react';
 import { Mail, Trash2, CheckCircle, Clock, Search, User, MessageSquare } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -12,19 +13,18 @@ export default function MessageManagement() {
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
 
   const fetchMessages = useCallback(async () => {
-    if (!token) return;
-    try {
-      const res = await fetch('/api/admin/contact', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
-      setMessages(data);
-    } catch (err) {
-      console.error('Failed to fetch messages:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
+  if (!token) return;
+  setLoading(true);
+  try {
+    const { data, error } = await supabase.from('contact_messages').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    setMessages(data || []);
+  } catch (err) {
+    console.error('Failed to fetch messages:', err);
+  } finally {
+    setLoading(false);
+  }
+}, [token]);
 
   useEffect(() => {
     fetchMessages();
@@ -32,40 +32,31 @@ export default function MessageManagement() {
 
   const handleUpdateStatus = async (id: string, status: string) => {
     try {
-      const res = await fetch(`/api/admin/contact/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ status })
-      });
-      if (res.ok) {
-        setMessages(messages.map(m => m.id === id ? { ...m, status } : m));
-        if (selectedMessage?.id === id) {
-          setSelectedMessage({ ...selectedMessage, status });
-        }
-      }
+      const { error } = await supabase.from('contact_messages').update({ status }).eq('id', id);
+if (error) throw error;
+
+      
+  setMessages(messages.map(m => m.id === id ? { ...m, status } : m));
+  if (selectedMessage?.id === id) {
+    setSelectedMessage({ ...selectedMessage, status });
+  }
+
     } catch (err) {
       console.error('Failed to update status:', err);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this message?')) return;
-    try {
-      const res = await fetch(`/api/admin/contact/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        setMessages(messages.filter(m => m.id !== id));
-        if (selectedMessage?.id === id) setSelectedMessage(null);
-      }
-    } catch (err) {
-      console.error('Failed to delete message:', err);
-    }
-  };
+  if (!window.confirm('Are you sure you want to delete this message?')) return;
+  try {
+    const { error } = await supabase.from('contact_messages').delete().eq('id', id);
+    if (error) throw error;
+    setMessages(messages.filter(m => m.id !== id));
+    if (selectedMessage?.id === id) setSelectedMessage(null);
+  } catch (err) {
+    console.error('Failed to delete message:', err);
+  }
+};
 
   const filteredMessages = messages.filter(m => {
   const nameText = (m.full_name || m.name || '').toLowerCase();
