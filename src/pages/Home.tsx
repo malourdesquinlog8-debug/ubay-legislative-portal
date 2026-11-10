@@ -18,29 +18,27 @@ export default function Home() {
 
   return (
     <div className="space-y-0 pb-20 overflow-visible bg-transparent">
-      <section className="bg-transparent text-slate-900 relative">
-      
+      <section className="bg-[#0f172a] text-white relative pb-20 md:pb-24">
       <div className="relative z-10 max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 pt-14 md:pt-16">
   <div className="max-w-2xl">
 
          
-            <h1 className="text-4xl md:text-5xl font-serif font-bold mb-4 leading-tight text-slate-900" style={{ WebkitTextStroke: '0.5px white' }}>
+            <h1 className="text-4xl md:text-5xl font-serif font-bold mb-4 leading-tight text-white">
   Legislative Transparency
   <br />
-  <span className="text-yellow-500" style={{ WebkitTextStroke: '1px black' }}>at Your Fingertips</span>
+  <span className="text-yellow-500">at Your Fingertips</span>
 </h1>
-            <p className="text-sm text-slate-700 mb-5">Access ordinances, watch live sessions, and stay informed.</p>
-            <div className="flex flex-wrap gap-2 items-center">
-            <Link to="/ordinances" className="inline-block bg-yellow-500 text-slate-900 font-bold px-5 py-2.5 rounded-full text-xs transform-gpu transition-transform duration-250 ease-out will-change-transform hover:scale-115 hover:-translate-y-1 hover:shadow-xl">Search Ordinances</Link>
-            <Link to="/sessions" className="inline-block bg-slate-900 text-white font-bold px-5 py-2.5 rounded-full text-xs transform-gpu transition-transform duration-250 ease-out will-change-transform hover:scale-115 hover:-translate-y-1 hover:shadow-xl">Watch Live Session</Link>
-
-            </div>
+            <p className="text-base md:text-lg text-slate-300 leading-relaxed mb-6 max-w-2xl">Access ordinances, watch live sessions, and participate in the legislative process of Ubay. Your voice matters in local governance.</p>
+           <div className="flex flex-wrap items-center gap-3">
+  <Link to="/ordinances" className="inline-flex items-center justify-center w-[190px] bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold px-4 py-3 rounded-lg text-sm transform-gpu transition-transform duration-250 ease-out will-change-transform hover:scale-115 hover:-translate-y-1 hover:shadow-xl">Search Ordinances</Link>
+  <Link to="/sessions" className="inline-flex items-center justify-center w-[190px] bg-white/10 border border-white/20 hover:bg-white/20 text-white font-bold px-4 py-3 rounded-lg text-sm transform-gpu transition-transform duration-250 ease-out will-change-transform hover:scale-115 hover:-translate-y-1 hover:shadow-xl">🎥 Watch Live Session</Link>
+</div>
           </div>
         </div>
       </section>
 
       {/* OVERFLOW VISIBLE PARA BULGING DILI MA CUT */}
-     <section className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 mt-8 relative z-20 overflow-visible !overflow-visible">
+     <section className="max-w- mx-auto px-4 sm:px-6 lg:px-10 mt-8 pt-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 overflow-visible !overflow-visible pt-6 pb-10">
           
           <div className="!transform-gpu group relative bg-white p-6 rounded-xl shadow-lg border-t-4 border-white transition-all duration-300 ease-out will-change-transform hover:!scale-[1.12] hover:!-translate-y-4 hover:!translate-x-2 hover:!z-[50] hover:!shadow-[0_25px_50px_-12px_rgba(0,0,0,0.4)] hover:!rotate-1">

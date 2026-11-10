@@ -21,8 +21,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
 
   return (
     
-    <div className="min-h-screen flex flex-col font-sans relative">
-   <div aria-hidden="true" style={{ position: 'fixed', top: 0, left: 0, right: 0, width: '100%', height: '100lvh', minHeight: '100svh', zIndex: -1, backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.35)), url(/SESSION.jpg)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', transform: 'translateZ(0)' }} />
+    <div className="min-h-screen flex flex-col font-sans">
       <div className="bg-lgu-blue-900 text-white py-2 px-4 text-sm">
         <div className="max-w-[1720px] mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-4">
