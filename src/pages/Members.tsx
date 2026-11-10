@@ -29,8 +29,8 @@ export default function Members() {
   return (
     <div className="min-h-screen bg-transparent">
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-slate-900">Sangguniang Bayan Members</h1>
-        <p className="text-gray-600 mt-2">{members.length} Members</p>
+        <h1 className="block w-fit mx-auto bg-slate-900/70 backdrop-blur-sm px-4 py-1.5 rounded-full text-3xl md:text-4xl font-serif font-bold text-white shadow-lg text-center">Sangguniang Bayan Members</h1>
+        <p className="block w-fit mx-auto mt-2 text-center text-slate-700">1 Members</p>
         {members.length === 0 ? (
           <div className="mt-8 bg-white/90 backdrop-blur-sm rounded-xl p-12 text-center border shadow-sm"><p>No members available.</p></div>
         ) : (
