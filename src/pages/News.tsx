@@ -33,8 +33,8 @@ export default function News() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 bg-transparent min-h-screen">
-      <h1 className="text-3xl font-serif font-bold text-slate-900">News & Events</h1>
-      <p className="text-sm text-slate-500 mt-1">Stay updated with latest happenings in UBAY.</p>
+      <h1 className="block w-fit mx-auto bg-slate-900/70 backdrop-blur-sm px-4 py-1.5 rounded-full text-3xl md:text-4xl font-serif font-bold text-white shadow-lg text-center">News & Events</h1>
+      <p className="block w-fit mx-auto mt-2 bg-black/40 backdrop-blur-sm px-4 py-1 rounded-full text-white text-sm text-center">Stay updated with latest happenings in UBAY.</p>
 
       {/* SEARCH BAR */}
       <div className="border border-black rounded-xl p-3 flex gap-2 mt-6 mb-8 bg-white">

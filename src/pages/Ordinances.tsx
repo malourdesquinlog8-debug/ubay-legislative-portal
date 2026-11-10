@@ -81,8 +81,8 @@ export default function Ordinances() {
     <div className="min-h-screen bg-transparent py-6 overflow-visible">
       <div className="max-w-[95%] mx-auto px-2 md:px-4">
         <div className="mb-6 max-w-5xl mx-auto">
-          <h1 className="text-2xl md:text-3xl font-serif font-bold text-slate-900 flex items-center gap-2"><FileText className="w-6 h-6" /> Legislative Documents</h1>
-          <p className="text-slate-500 mt-1 text-sm">Official Ordinances and Resolutions of the Municipality of Ubay</p>
+          <h1 className="flex w-fit mx-auto items-center gap-2 bg-slate-900/70 backdrop-blur-sm px-4 py-1.5 rounded-full text-3xl md:text-4xl font-serif font-bold text-white shadow-lg text-center">📄 Legislative Documents</h1>
+          <p className="block w-fit mx-auto mt-2 bg-black/40 backdrop-blur-sm px-4 py-1 rounded-full text-white text-sm text-center">Official Ordinances and Resolutions of the Municipality of Ubay</p>
         </div>
 
         <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border p-3 mb-5 max-w-5xl mx-auto flex flex-col md:flex-row gap-2">
