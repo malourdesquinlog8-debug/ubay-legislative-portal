@@ -8,19 +8,16 @@
   --color-lgu-gold-500: #eab308;
   --color-lgu-gold-600: #ca8a04;
 }
-
+html {
+  scrollbar-gutter: stable;
+  overflow-y: scroll;
+}
 body {
-  background-image: 
-    linear-gradient(rgba(235, 235, 180, 0.88), rgba(235, 235, 180, 0.88)),
-    url('/SESSION.jpg') !important;
-  background-size: cover !important;
-  background-position: center !important;
-  background-attachment: fixed !important;
-  background-repeat: no-repeat !important;
+  background-color: #fefce8;
   min-height: 100vh;
   @apply text-slate-900 font-sans;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  @apply font-serif text-lgu-blue-900;
+  font-family: var(--font-serif);
 }

@@ -23,7 +23,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
     <div 
       className="min-h-screen flex flex-col font-sans"
       style={{
-        backgroundImage: `linear-gradient(rgba(235, 235, 180, 0.88), rgba(235, 235, 180, 0.88)), url('/SESSION.jpg')`,
+        backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.35)), url(/SESSION.jpg)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed',
@@ -44,14 +44,14 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         </div>
       </div>
 
-      <header className="bg-white shadow-md sticky top-0 z-50">
+       <header className="bg-white shadow-md sticky top-0 z-50">
         <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-24">
             <div className="flex items-center">
-              <img src={settings.logo_url} alt="SB Logo" className="w-16 h-16 rounded-full mr-4 shadow-sm object-cover" />
+              <img src={settings.logo_url} alt="SB Logo" className="w-20 h-20 md:w-[80px] md:h-[80px] rounded-full mr-4 shadow-md object-cover" />
               <div>
-                <h1 className="text-2xl font-serif font-bold text-lgu-blue-900 leading-tight">Sangguniang Bayan</h1>
-                <p className="text-sm text-slate-500 uppercase tracking-widest">Municipality of UBAY</p>
+              <h1 className="text-[28px] md:text-[34px] font-serif font-bold text-lgu-blue-900 leading-tight">Sangguniang Bayan</h1>
+              <p className="text-[15px] md:text-base text-slate-500 uppercase tracking-[0.2em]">Municipality of UBAY</p>
               </div>
             </div>
             <nav className="hidden md:flex items-center space-x-1">
