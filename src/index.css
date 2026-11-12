@@ -11,10 +11,14 @@
 html {
   scrollbar-gutter: stable;
   overflow-y: scroll;
+  overflow-x: hidden;
+  max-width: 100%;
 }
 body {
   background-color: #fefce8;
   min-height: 100vh;
+  overflow-x: hidden;
+  max-width: 100%;
   @apply text-slate-900 font-sans;
 }
 

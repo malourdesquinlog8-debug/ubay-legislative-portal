@@ -28,9 +28,12 @@ export default function Members() {
 
   return (
     <div className="min-h-screen bg-transparent">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-  <h1 className="text-3xl md:text-4xl font-serif font-bold text-slate-900">Sangguniang Bayan Members</h1>
-  <p className="text-slate-600 mt-2">Meet the elected officials serving the Municipality of Ubay.</p>
+     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+  <div className="text-center">
+    <h1 className="text-3xl md:text-4xl font-serif font-bold text-slate-900 text-center">Sangguniang Bayan Members</h1>
+    <p className="text-slate-600 mt-3 max-w-2xl mx-auto text-center">Meet the dedicated public servants working to craft legislation for the betterment of Ubay.</p>
+  </div>
+  
         {members.length === 0 ? (
           <div className="mt-8 bg-white/90 backdrop-blur-sm rounded-xl p-12 text-center border shadow-sm"><p>No members available.</p></div>
         ) : (

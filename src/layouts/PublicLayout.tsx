@@ -21,7 +21,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
 
   return (
     
-    <div className="min-h-screen flex flex-col font-sans">
+    <div className="min-h-screen flex flex-col font-sans overflow-x-hidden">
       <div className="bg-lgu-blue-900 text-white py-2 px-4 text-sm">
         <div className="max-w-[1720px] mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-4">
