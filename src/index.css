@@ -10,8 +10,8 @@
 }
 html {
   scrollbar-gutter: stable;
-  overflow-y: scroll;
-  overflow-x: hidden;
+  overflow-y: auto;
+  overflow-x: clip;
   max-width: 100%;
 }
 body {
