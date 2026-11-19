@@ -1,41 +1,48 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "【entity-Inter¦canonical_name=Inter】", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Merriweather", Georgia, Cambria, "Times New Roman", Times, serif;
   --color-lgu-blue-900: #0f172a;
   --color-lgu-blue-800: #1e293b;
   --color-lgu-gold-500: #eab308;
   --color-lgu-gold-600: #ca8a04;
 }
+
 html {
   scrollbar-gutter: stable;
-  overflow-y: auto;
-  overflow-x: clip;
-  max-width: 100%;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
 }
+
 body {
   background-color: #fefce8;
   min-height: 100vh;
-  overflow-x: hidden;
-  max-width: 100%;
   @apply text-slate-900 font-sans;
+  /* FIX - SIBOG + NABUNAG - MOBILE RA */
+  overflow-x: clip;
+  overscroll-behavior-y: auto;
+  touch-action: pan-y;
 }
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-serif);
 }
+
+/* MOBILE RA - MAX 768px - DESKTOP DILI MAHILABTAN */
 @media (max-width: 768px) {
     * {
     background-attachment: scroll !important;
   }
 
-  html {
-    scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch;
+  html, body {
+    overflow-x: clip;
+    max-width: 100%;
   }
 
+  /* AYAW I-LOCK ANG SCROLL - MAO NI NAGPA 2-FINGER */
   body {
-    overscroll-behavior: contain;
+    overscroll-behavior-y: auto;
+    position: static;
   }
 }
