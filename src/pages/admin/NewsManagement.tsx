@@ -24,21 +24,21 @@ export default function NewsManagement() {
   useEffect(() => { fetchNews(); }, [fetchNews]);
 
   const handleImageUpload = async (e: any) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-  setUploading(true);
-  try {
-    const publicUrl = await uploadToR2(file, "news");
-    console.log('Uploaded URL:', publicUrl);
-    setFormData({ ...formData, image_url: publicUrl });
-    alert('Image uploaded! ' + publicUrl);
-  } catch (err: any) {
-    console.log('Upload failed:', err);
-    alert('Upload failed: ' + err.message);
-  } finally {
-    setUploading(false);
-  }
-};
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const publicUrl = await uploadToR2(file, "news");
+      console.log('Uploaded URL:', publicUrl);
+      setFormData({ ...formData, image_url: publicUrl });
+      alert('Image uploaded! ' + publicUrl);
+    } catch (err: any) {
+      console.log('Upload failed:', err);
+      alert('Upload failed: ' + err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleOpenModal = (item: any = null) => {
     if (item) {
@@ -73,6 +73,21 @@ export default function NewsManagement() {
     } catch (err: any) { alert('Failed: ' + err.message); }
   };
 
+  // NEW - DELETE FUNCTION
+  const handleDelete = async (id: any) => {
+    if (!confirm('Delete this news? Dili na ni mabalik.')) return;
+    try {
+      const { error } = await supabase.from('news').delete().eq('id', id);
+      if (error) { alert('Delete failed: ' + error.message); return; }
+      alert('Deleted!');
+      setShowModal(false);
+      setEditingItem(null);
+      fetchNews();
+    } catch (err: any) {
+      alert('Delete failed: ' + err.message);
+    }
+  };
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -85,7 +100,10 @@ export default function NewsManagement() {
             <div key={n.id} className="bg-white border rounded-xl p-4 flex gap-4">
               {n.image_url && <img src={n.image_url} className="w-20 h-20 object-cover rounded" />}
               <div className="flex-1"><p className="font-bold">{n.title}</p><p className="text-sm text-gray-600">{n.category} - {n.author}</p></div>
-              <button onClick={() => handleOpenModal(n)} className="text-blue-600 text-sm">Edit</button>
+              <div className="flex gap-3 items-center">
+                <button onClick={() => handleOpenModal(n)} className="text-blue-600 text-sm">Edit</button>
+                <button onClick={() => handleDelete(n.id)} className="text-red-600 text-sm font-semibold">Delete</button>
+              </div>
             </div>
           ))}
         </div>
@@ -120,7 +138,13 @@ export default function NewsManagement() {
               <textarea value={formData.content} onChange={(e) => setFormData({...formData, content: e.target.value})} className="w-full px-3 py-2 border rounded-lg h-32" placeholder="Content" />
               <div className="flex items-center gap-2"><input type="checkbox" checked={formData.is_published} onChange={(e) => setFormData({...formData, is_published: e.target.checked})} /><label>Publish immediately</label></div>
             </div>
-            <div className="flex justify-end gap-2 mt-6"><button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg">Cancel</button><button onClick={handleSave} disabled={uploading} className="px-6 py-2 bg-blue-900 text-white rounded-lg disabled:opacity-50">{uploading ? 'Uploading...' : 'Save Changes'}</button></div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg">Cancel</button>
+              {editingItem && (
+                <button onClick={() => handleDelete(editingItem.id)} className="px-4 py-2 border border-red-600 text-red-600 rounded-lg font-semibold">Delete</button>
+              )}
+              <button onClick={handleSave} disabled={uploading} className="px-6 py-2 bg-blue-900 text-white rounded-lg disabled:opacity-50">{uploading ? 'Uploading...' : 'Save Changes'}</button>
+            </div>
           </div>
         </div>
       )}
