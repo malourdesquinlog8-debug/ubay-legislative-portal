@@ -70,9 +70,9 @@ h1, h2, h3, h4, h5, h6 {
 
   /* LOGO - gikan dako, himoong 48px lang */
   header img {
-    width: 48px !important;
-    height: 48px !important;
-    min-width: 48px !important;
+    width: 60px !important;
+    height: 60px !important;
+    min-width: 60px !important;
   }
 
   /* SANGGUNIANG BAYAN - pagamay */
@@ -86,39 +86,6 @@ h1, h2, h3, h4, h5, h6 {
   /* MUNICIPALITY OF UBAY - pagamay pud */
   header p,
   header span {
-    font-size: 10px !important;
-    letter-spacing: 0.15em !important;
-  }
-}
-/* MOBILE ONLY - AYAW HILABTI ANG IBABAW */
-@media (max-width: 768px) {
-  html, body {
-    overflow-x: hidden !important;
-    overscroll-behavior-y: auto !important;
-    touch-action: pan-y !important;
-    -webkit-overflow-scrolling: touch !important;
-  }
-  .overflow-x-auto, .overflow-auto {
-    -webkit-overflow-scrolling: touch !important;
-    touch-action: pan-x pan-y !important;
-  }
-  thead th {
-    position: static !important;
-  }
-  header {
-    padding-top: 8px !important;
-    padding-bottom: 8px !important;
-  }
-  header img {
-    width: 48px !important;
-    height: 48px !important;
-    min-width: 48px !important;
-  }
-  header h1 {
-    font-size: 22px !important;
-    line-height: 1.1 !important;
-  }
-  header p, header span {
     font-size: 10px !important;
     letter-spacing: 0.15em !important;
   }
