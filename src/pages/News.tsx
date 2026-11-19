@@ -52,7 +52,7 @@ export default function News() {
       </div>
 
       {/* SLIDER WRAPPER - RELATIVE + PX-12 PARA ARROW DILI MA TABONAN */}
-      <div className="relative px-12 overflow-visible">
+      <div className="relative px-0 sm:px-12 overflow-visible">
 
         {/* LEFT ARROW - SENTRO NA - TOP 1/2 */}
         <button
@@ -63,7 +63,7 @@ export default function News() {
         </button>
 
         {/* CARDS GRID */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-2 md:grid md:grid-cols-3 md:overflow-visible md:snap-none md:pb-0">
           {visibleNews.map((item: any) => (
             <Link to={`/news/${item.id}`} key={item.id} className="group bg-white border border-black rounded-xl overflow-hidden shadow-sm hover:shadow-xl hover:scale-[1.02] transition-all duration-300">
               <div className="relative h-48 bg-slate-100 overflow-hidden">
