@@ -65,14 +65,14 @@ export default function News() {
         {/* CARDS GRID */}
         <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-2 md:grid md:grid-cols-3 md:overflow-visible md:snap-none md:pb-0">
           {visibleNews.map((item: any) => (
-            <Link to={`/news/${item.id}`} key={item.id} className="group bg-white border border-black rounded-xl overflow-hidden shadow-sm hover:shadow-xl hover:scale-[1.02] transition-all duration-300">
-              <div className="relative h-48 bg-slate-100 overflow-hidden">
-                <img src={item.image} alt={item.title} className="w-full h-full object-cover group-hover:scale-110 transition-all duration-500" />
+           <Link to={`/news/${item.id}`} key={item.id} className="group min-w-[78%] snap-start shrink-0 md:min-w-0 md:shrink bg-white border border-black rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all">
+  <div className="relative h-48 bg-slate-100 overflow-hidden">
+    <img src={item.image} alt={item.title} className="w-full h-full object-cover group-hover:scale-110 transition-all duration-500" />
                 <span className="absolute top-3 left-3 bg-white text- font-bold px-3 py-1 rounded-full border shadow-sm">
                   {item.category || 'Event'}
                 </span>
               </div>
-              <div className="p-4">
+              <div className="p-3">
                 <h3 className="font-bold text- uppercase line-clamp-2 leading-tight">{item.title}</h3>
                 <p className="text-xs text-gray-400 mt-1 uppercase">{item.description || item.title}</p>
                 <div className="flex justify-between mt-4 pt-3 border-t border-black">
