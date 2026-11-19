@@ -37,14 +37,14 @@ export default function News() {
   <p className="text-slate-600 mt-2">Stay updated with latest happenings in Ubay.</p>
 
       {/* SEARCH BAR */}
-      <div className="border border-black rounded-xl p-3 flex gap-2 mt-6 mb-8 bg-white">
+      <div className="border border-black rounded-xl p-3 flex flex-col sm:flex-row gap-2 mt-6 mb-8 bg-white">
         <input
           value={search}
           onChange={(e) => { setSearch(e.target.value); setCurrentIndex(0); }}
           placeholder="Search news and events..."
           className="flex-1 border border-black rounded-lg px-4 py-2 text-sm outline-none"
         />
-        <select className="border border-black rounded-lg px-3 py-2 text-sm">
+        <select className="border border-black rounded-lg px-3 py-2 text-sm w-full sm:w-auto">
           <option>All Categories</option>
           <option>News</option>
           <option>Event</option>
