@@ -1,4 +1,4 @@
-import { uploadToR2 } from "../../utils/r2Upload";
+import { uploadToR2, deleteFromR2 } from "../../utils/r2Upload";
 import { useState, useEffect } from 'react';
 import { FileText, Plus, Search, Edit, Trash2, Upload, X, Calendar, User, Eye, Sparkles, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -64,11 +64,11 @@ export default function LegislativeManagement() {
   setUploading(false);
 };
 
-  // --- AUTO-FILL GEMINI - PAGE 1 ONLY - V4 AUTO-FALLBACK ---
+  // --- AUTO-FILL GEMINI - PAGE 1 ONLY - V4 AUTO-FALLBACK - ENGLISH UI ---
   const handleAutoFill = async () => {
-    if (!formData.pdf_url) { alert('Upload PDF first!'); return; }
+    if (!formData.pdf_url) { alert('Please upload a PDF first.'); return; }
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) { alert('Walay Gemini API Key! Check imong .env nga naay VITE_GEMINI_API_KEY.'); return; }
+    if (!apiKey) { alert('Gemini API Key not found. Please check your environment variables.'); return; }
     setAutoFilling(true);
     try {
       const res = await fetch(formData.pdf_url);
@@ -105,7 +105,7 @@ export default function LegislativeManagement() {
       }
       if (!gData || gData?.error) { throw new Error('Gemini error: ' + lastError); }
       let raw = gData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      if (!raw.trim()) { throw new Error('Blanko si Gemini. Try balik.'); }
+      if (!raw.trim()) { throw new Error('No content returned. Please try again.'); }
       const start = raw.indexOf('{');
       const end = raw.lastIndexOf('}');
       if (start !== -1 && end !== -1) raw = raw.slice(start, end + 1);
@@ -122,28 +122,47 @@ export default function LegislativeManagement() {
         author: parsed.author || prev.author,
         description: parsed.description || prev.description,
       }));
-      alert('Auto-fill done! Check lang kung sakto, ayha i-Save.');
+      alert('Auto-fill completed. Please verify the details before saving.');
     } catch (err: any) {
       console.error(err);
-      alert('Auto-fill failed: ' + (err.message || 'Check PDF ug API Key'));
+      alert('Auto-fill failed: ' + (err.message || 'Please check the PDF and API Key.'));
     }
     setAutoFilling(false);
   };
 
   const handleSave = async () => {
-    if (!formData.ordinance_no || !formData.title) { alert('Number and Title required!'); return; }
+    if (!formData.ordinance_no || !formData.title) { alert('Legislation Number and Title are required.'); return; }
+    const no = formData.ordinance_no.trim();
+    const yr = formData.year_series.trim();
+    const ttl = formData.title.trim();
+    // --- DUPLICATE CHECK: Number + Year + Title must ALL match ---
+    const { data: existing } = await supabase.from('legislations').select('id, ordinance_no, year_series, title').eq('ordinance_no', no).eq('year_series', yr);
+    const duplicate = (existing || []).find((item: any) => item.title?.trim().toLowerCase() === ttl.toLowerCase() && (!editingItem || item.id !== editingItem.id));
+    if (duplicate) {
+      const proceed = confirm(`This legislation already exists:\n\nNo: ${no}\nYear: ${yr}\nTitle: ${ttl}\n\nDo you still want to save it as a duplicate?`);
+      if (!proceed) return;
+    }
     const payload = {
-      ordinance_no: formData.ordinance_no, title: formData.title, type: formData.type, legislation_type: formData.legislation_type,
+      ordinance_no: no, title: ttl, type: formData.type, legislation_type: formData.legislation_type,
       status: formData.status, date_approved: formData.date_approved, description: formData.description, author: formData.author,
       pdf_url: formData.pdf_url, file_url: formData.file_url || formData.pdf_url, document_url: formData.document_url || formData.pdf_url,
-      year_series: formData.year_series || formData.date_approved?.slice(0,4) || '',
+      year_series: yr || formData.date_approved?.slice(0,4) || '',
     };
     const { error } = editingItem ? await supabase.from('legislations').update(payload).eq('id', editingItem.id) : await supabase.from('legislations').insert(payload);
     if (!error) { handleCloseModal(); fetchLegislations(); }
     else alert('Error: ' + error.message);
   };
 
-  const handleDelete = async (id: string) => { if (!confirm('Delete?')) return; await supabase.from('legislations').delete().eq('id', id); fetchLegislations(); };
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this legislation? This will also delete the PDF file.')) return;
+    const item = legislations.find((l) => l.id === id);
+    const fileUrl = item?.pdf_url || item?.file_url || item?.document_url;
+    if (fileUrl) {
+      await deleteFromR2(fileUrl);
+    }
+    await supabase.from('legislations').delete().eq('id', id);
+    fetchLegislations();
+  };
   const filtered = legislations.filter(item => (item.title || '').toLowerCase().includes(searchTerm.toLowerCase()) || (item.ordinance_no || '').toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
@@ -222,9 +241,9 @@ export default function LegislativeManagement() {
                       <div className="flex gap-2"><a href={formData.pdf_url} target="_blank" className="w-9 h-9 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center"><Eye className="w-5 h-5" /></a><button onClick={() => setFormData({...formData, pdf_url: '', file_url: '', document_url: ''})} className="w-9 h-9 bg-red-50 text-red-600 rounded-full flex items-center justify-center"><X className="w-5 h-5" /></button></div>
                     </div>
                     <button onClick={handleAutoFill} disabled={autoFilling} className="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white px-4 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
-                      {autoFilling ? <><Loader2 className="w-4 h-4 animate-spin" /> Reading Page 1... Ayaw sa pag-click</> : <><Sparkles className="w-4 h-4" /> Auto-fill from PDF Page 1</>}
+                      {autoFilling ? <><Loader2 className="w-4 h-4 animate-spin" /> Reading Page 1... Please wait</> : <><Sparkles className="w-4 h-4" /> Auto-fill from PDF Page 1</>}
                     </button>
-                    <p className="text-xs text-slate-500 text-center">Basahon ra ang Page 1. Ikaw gihapon mo-check ayha mo-Save.</p>
+                    <p className="text-xs text-slate-500 text-center">Only Page 1 will be read. Please verify before saving.</p>
                   </div>
                 ) : (
                   <label className="w-full bg-white border rounded-xl px-6 py-8 flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-slate-50">
