@@ -29,8 +29,8 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             <span className="flex items-center"><Mail className="w-3 h-3 mr-1" /> sanggunianbayanubay@gmail.com</span>
           </div>
           <div className="flex items-center space-x-3">
-            <a href="https://web.facebook.com/profile.php?id=100090571482008" target="_blank" rel="noopener noreferrer" className="hover:text-lgu-gold-500"><Facebook className="w-4 h-4" /></a>
-            <a href="https://www.youtube.com/@13thSangguniangBayanUBAYBoh" target="_blank" className="hover:text-lgu-gold-500"><Youtube className="w-4 h-4" /></a>
+            <a href="" target="_blank" rel="noopener noreferrer" className="hover:text-lgu-gold-500"><Facebook className="w-4 h-4" /></a>
+            <a href="" target="_blank" className="hover:text-lgu-gold-500"><Youtube className="w-4 h-4" /></a>
             <Link to="/login" className="text-xs bg-lgu-blue-800 px-3 py-1 rounded-full hover:bg-lgu-gold-500 hover:text-lgu-blue-900">Admin Login</Link>
           </div>
         </div>
