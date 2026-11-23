@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit2, Trash2, Shield, Mail, Key } from 'lucide-react';
 import { format } from 'date-fns';
-import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
 
 export default function Users() {
-  const { token } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -17,20 +16,20 @@ export default function Users() {
   });
 
   const fetchUsers = useCallback(async () => {
-    if (!token) return;
     setLoading(true);
     try {
-      const res = await fetch('/api/users', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
-      setUsers(data);
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setUsers(data || []);
     } catch (err) {
       console.error('Failed to fetch users:', err);
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     fetchUsers();
@@ -59,38 +58,80 @@ export default function Users() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const method = editingUser ? 'PUT' : 'POST';
-    const endpoint = editingUser ? `/api/users/${editingUser.id}` : '/api/users';
-    
     try {
-      const res = await fetch(endpoint, {
-        method,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(formData)
-      });
-      if (res.ok) {
-        setShowModal(false);
-        fetchUsers();
+      if (editingUser) {
+        // EDIT: Name ug Role lang - EMAIL DILI NA MA-EDIT PARA MAG-SYNC SA AUTH
+        const { error } = await supabase
+          .from('users')
+          .update({
+            full_name: formData.full_name,
+            role: formData.role
+          })
+          .eq('id', editingUser.id);
+        if (error) throw error;
+
+        // FIX: Kung IKAW mismo ang gi-edit, i-sync pud ang Auth + localStorage (Sidebar)
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (currentUser && currentUser.id === editingUser.id) {
+          await supabase.auth.updateUser({ data: { full_name: formData.full_name } });
+          localStorage.setItem('saved_profile', JSON.stringify({ name: formData.full_name, full_name: formData.full_name, email: editingUser.email }));
+          try {
+            const old = JSON.parse(localStorage.getItem('user') || '{}');
+            localStorage.setItem('user', JSON.stringify({ ...old, name: formData.full_name, full_name: formData.full_name, email: editingUser.email }));
+          } catch {}
+          try {
+            const oldAuth = JSON.parse(localStorage.getItem('auth_user') || '{}');
+            localStorage.setItem('auth_user', JSON.stringify({ ...oldAuth, name: formData.full_name, full_name: formData.full_name, email: editingUser.email }));
+          } catch {}
+        }
+
+        alert('User updated! Na-sync na sa Users table.');
       } else {
-        const data = await res.json();
-        alert(data.error || 'Failed to save user');
+        // CREATE: Auth una, unya ang trigger na ang mo-sync sa users table
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: formData.email.trim(),
+          password: formData.password,
+          options: { data: { full_name: formData.full_name } }
+        });
+        if (authError) throw authError;
+
+        // Kung wala pa na-trigger, manual insert as backup
+        if (authData.user) {
+          const { error: insertError } = await supabase
+            .from('users')
+            .upsert([{
+              id: authData.user.id,
+              full_name: formData.full_name,
+              email: formData.email.trim(),
+              role: formData.role
+            }], { onConflict: 'id' });
+          if (insertError) console.warn('Upsert users (trigger may have handled):', insertError.message);
+        }
+        alert('Admin created! Naka-sync na sa Supabase Auth ug Users table.');
       }
-    } catch (err) {
+      setShowModal(false);
+      await fetchUsers();
+
+      // FIX: Kung ikaw mismo ang gi-edit, reload para ang Sidebar mo-sunod dayon
+      const { data: { user: me } } = await supabase.auth.getUser();
+      if (editingUser && me && me.id === editingUser.id) {
+        setTimeout(() => window.location.reload(), 500);
+      }
+    } catch (err: any) {
       console.error('Failed to save user:', err);
+      alert(err.message || 'Failed to save user');
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this user?')) return;
+  const handleDelete = async (id: string, email: string) => {
+    if (!confirm(`Delete ${email}?\n\nPahimangno: I-delete pud siya sa Supabase > Authentication > Users para hingpit nga mawala.`)) return;
     try {
-      const res = await fetch(`/api/users/${id}`, { 
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) fetchUsers();
+      const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      fetchUsers();
     } catch (err) {
       console.error('Failed to delete user:', err);
     }
@@ -101,9 +142,9 @@ export default function Users() {
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-3xl font-serif font-bold text-slate-900">User Management</h1>
-          <p className="text-slate-500">Manage administrative access to the LGU Legislative Portal.</p>
+          <p className="text-slate-500">Manage administrative access to the LGU Legislative Portal. Synced with Supabase Auth.</p>
         </div>
-        <button 
+        <button
           onClick={() => handleOpenModal()}
           className="bg-lgu-blue-900 text-white px-4 py-2 rounded-lg font-bold flex items-center hover:bg-lgu-blue-800 transition-colors"
         >
@@ -149,17 +190,17 @@ export default function Users() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                    {format(new Date(user.created_at), 'MMM d, yyyy')}
+                    {user.created_at ? format(new Date(user.created_at), 'MMM d, yyyy') : '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button 
+                    <button
                       onClick={() => handleOpenModal(user)}
                       className="text-lgu-blue-900 hover:text-lgu-gold-600 mr-3"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
-                    <button 
-                      onClick={() => handleDelete(user.id)}
+                    <button
+                      onClick={() => handleDelete(user.id, user.email)}
                       className="text-red-600 hover:text-red-800"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -172,7 +213,6 @@ export default function Users() {
         )}
       </div>
 
-      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
@@ -180,12 +220,13 @@ export default function Users() {
               <h2 className="text-xl font-bold text-slate-900">
                 {editingUser ? 'Edit User' : 'Add New Admin'}
               </h2>
+              {editingUser && <p className="text-xs text-slate-500 mt-1">Email cannot be changed - it is synced with Supabase Auth. To change email, delete and create a new user.</p>}
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Full Name</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-lgu-blue-900"
                   placeholder="Juan Dela Cruz"
                   value={formData.full_name}
@@ -194,10 +235,11 @@ export default function Users() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Email Address</label>
-                <input 
-                  type="email" 
-                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-lgu-blue-900"
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Email Address {editingUser ? '(Locked)' : ''}</label>
+                <input
+                  type="email"
+                  disabled={!!editingUser}
+                  className={`w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-lgu-blue-900 ${editingUser ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : ''}`}
                   placeholder="juan@lgu.gov.ph"
                   value={formData.email}
                   onChange={e => setFormData({...formData, email: e.target.value})}
@@ -209,8 +251,8 @@ export default function Users() {
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Password</label>
                   <div className="relative">
                     <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                    <input 
-                      type="password" 
+                    <input
+                      type="password"
                       className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-lgu-blue-900"
                       placeholder="••••••••"
                       value={formData.password}
@@ -222,7 +264,7 @@ export default function Users() {
               )}
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Role</label>
-                <select 
+                <select
                   className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-lgu-blue-900"
                   value={formData.role}
                   onChange={e => setFormData({...formData, role: e.target.value})}
@@ -232,14 +274,14 @@ export default function Users() {
                 </select>
               </div>
               <div className="flex justify-end space-x-3 pt-4">
-                <button 
+                <button
                   type="button"
                   onClick={() => setShowModal(false)}
                   className="px-6 py-2 border border-slate-200 rounded-lg font-bold text-slate-600 hover:bg-slate-50 transition-colors"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   type="submit"
                   className="px-6 py-2 bg-lgu-blue-900 text-white rounded-lg font-bold hover:bg-lgu-blue-800 transition-colors"
                 >

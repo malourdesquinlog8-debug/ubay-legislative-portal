@@ -18,53 +18,56 @@ export default function Login() {
     setLoading(true);
 
     try {
-      // TRY SUPABASE FIRST
-      const { data: userData, error: supaError } = await supabase
+      // BAG-O: Gamit na ug Supabase Auth, dili na table password
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password,
+      });
+
+      if (authError) throw authError;
+      if (!authData.user) throw new Error('Invalid email or password');
+
+      // Kuhaa ang profile sa users table para sa name ug role
+      const { data: profile } = await supabase
         .from('users')
         .select('*')
-        .eq('email', email)
-        .eq('password', password)
+        .eq('id', authData.user.id)
         .single();
 
-      let finalUser = null;
+      // Kung walay profile sa table, gamit ang Auth data lang
+      const finalUser: any = {
+        id: authData.user.id,
+        name: profile?.full_name || authData.user.email?.split('@')[0] || 'Admin',
+        full_name: profile?.full_name || authData.user.email?.split('@')[0] || 'Admin',
+        email: authData.user.email || email,
+        role: profile?.role || 'admin'
+      };
 
-      if (!supaError && userData) {
-        // FOUND IN SUPABASE!
-        finalUser = {
-          id: userData.id,
-          name: userData.full_name || userData.name || 'Albert',
-          full_name: userData.full_name || userData.name || 'Albert',
-          email: userData.email,
-          role: userData.role || 'admin'
+      const token = 'ubay-admin-token-' + Date.now();
+      login(token, finalUser);
+      localStorage.setItem('isAdmin', 'true');
+      localStorage.setItem('saved_profile', JSON.stringify({ name: finalUser.name, email: finalUser.email }));
+      navigate('/admin');
+      setTimeout(() => window.location.href = '/admin', 100);
+    } catch (err: any) {
+      // FALLBACK PARA KANG ALBERT - daan nga dummy login
+      const validEmails = ['Albert@lgu.gov.ph', 'admin@ubay.gov.ph', 'albert@lgu.gov.ph'];
+      const savedPass = localStorage.getItem('saved_password') || 'admin123';
+      if (validEmails.includes(email) && (password === savedPass || password === 'admin123')) {
+        const finalUser: any = {
+          id: '1',
+          name: 'Albert',
+          full_name: 'Albert',
+          email: email,
+          role: 'admin'
         };
-      } else {
-        // FALLBACK TO DUMMY - FOR FIRST TIME
-        const validEmails = ['Albert@lgu.gov.ph', 'admin@ubay.gov.ph', 'albert@lgu.gov.ph'];
-        const savedPass = localStorage.getItem('saved_password') || 'admin123';
-        
-        if (validEmails.includes(email) && (password === savedPass || password === 'admin123')) {
-          finalUser = {
-            id: '1',
-            name: 'Albert',
-            full_name: 'Albert',
-            email: email,
-            role: 'admin'
-          };
-        }
-      }
-
-      if (finalUser) {
         const token = 'ubay-admin-token-' + Date.now();
         login(token, finalUser);
         localStorage.setItem('isAdmin', 'true');
-        localStorage.setItem('saved_profile', JSON.stringify({ name: finalUser.name, email: finalUser.email }));
         navigate('/admin');
-        setTimeout(() => window.location.href = '/admin', 100);
-      } else {
-        setError('Invalid email or password');
+        return;
       }
-    } catch (err: any) {
-      setError('Login error: ' + err.message);
+      setError('Invalid email or password');
     } finally {
       setLoading(false);
     }

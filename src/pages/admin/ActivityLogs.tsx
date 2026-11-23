@@ -1,40 +1,55 @@
 import { useState, useEffect, useCallback } from 'react';
 import { User, Tag, Clock, Info, Search, Filter } from 'lucide-react';
 import { format } from 'date-fns';
-import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
 
 export default function ActivityLogs() {
-  const { token } = useAuth();
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [actionFilter, setActionFilter] = useState('All');
 
   const fetchLogs = useCallback(async () => {
-    if (!token) return;
     setLoading(true);
     try {
-      const res = await fetch('/api/logs', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
-      setLogs(data);
+      // FIX: Supabase na, dili na /api/logs
+      const { data, error } = await supabase
+        .from('activity_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      if (error) {
+        console.error('Supabase logs error:', error);
+        setLogs([]);
+      } else {
+        // FIX: Siguraduhon nga array gyud, bisan empty
+        setLogs(Array.isArray(data) ? data : []);
+      }
     } catch (err) {
       console.error('Failed to fetch logs:', err);
+      setLogs([]);
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
 
+  // FIX: TANAN naka (xxx || '') para dili na gyud mo-crash
   const filteredLogs = logs.filter(log => {
-    const matchesSearch = 
-      log.user_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      (log.details && log.details.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      log.target_type.toLowerCase().includes(searchTerm.toLowerCase());
+    const userName = (log.user_name || log.user_email || log.user || '').toLowerCase();
+    const details = (log.details || log.description || '').toLowerCase();
+    const targetType = (log.target_type || log.target || '').toLowerCase();
+    const searchLower = searchTerm.toLowerCase();
+
+    const matchesSearch =
+      userName.includes(searchLower) ||
+      details.includes(searchLower) ||
+      targetType.includes(searchLower);
+
     const matchesAction = actionFilter === 'All' || log.action === actionFilter;
     return matchesSearch && matchesAction;
   });
@@ -50,6 +65,15 @@ export default function ActivityLogs() {
     }
   };
 
+  const formatDate = (dateStr: string) => {
+    try {
+      if (!dateStr) return '-';
+      return format(new Date(dateStr), 'MMM d, yyyy h:mm a');
+    } catch {
+      return '-';
+    }
+  };
+
   return (
     <div className="p-8 max-w-7xl mx-auto">
       <div className="mb-8">
@@ -61,8 +85,8 @@ export default function ActivityLogs() {
       <div className="mb-6 flex flex-col md:flex-row gap-4">
         <div className="relative flex-grow">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-          <input 
-            type="text" 
+          <input
+            type="text"
             placeholder="Search logs, users, or details..."
             className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-lgu-blue-900"
             value={searchTerm}
@@ -71,7 +95,7 @@ export default function ActivityLogs() {
         </div>
         <div className="flex items-center gap-2">
           <Filter className="text-slate-400 w-5 h-5" />
-          <select 
+          <select
             className="px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-lgu-blue-900"
             value={actionFilter}
             onChange={e => setActionFilter(e.target.value)}
@@ -109,18 +133,18 @@ export default function ActivityLogs() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <User className="w-4 h-4 mr-2 text-slate-400" />
-                        <span className="text-sm font-medium text-slate-900">{log.user_name}</span>
+                        <span className="text-sm font-medium text-slate-900">{log.user_name || log.user_email || 'System'}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 rounded text-xs font-bold uppercase tracking-wider ${getActionColor(log.action)}`}>
-                        {log.action}
+                        {log.action || 'Info'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center text-sm text-slate-600">
                         <Tag className="w-3 h-3 mr-1" />
-                        {log.target_type}
+                        {log.target_type || log.target || '-'}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -132,7 +156,7 @@ export default function ActivityLogs() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center text-xs text-slate-500">
                         <Clock className="w-3 h-3 mr-1" />
-                        {format(new Date(log.created_at), 'MMM d, yyyy h:mm a')}
+                        {formatDate(log.created_at)}
                       </div>
                     </td>
                   </tr>
