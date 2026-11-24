@@ -81,30 +81,39 @@ export default function LegislativeManagement() {
     return t;
   };
 
-  // --- AUTO-FILL - GEMINI VISION LANG, WALAY INSTANT PARA ACCURATE ---
+  // --- AUTO-FILL - HYBRID: Groq for TEXT, Gemini for SCANNED ---
   const handleAutoFill = async () => {
     if (!formData.pdf_url) { alert('Please upload a PDF first.'); return; }
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) { alert('Gemini API Key not found. Please check your environment variables.'); return; }
+    const groqKey = (import.meta.env.VITE_GROQ_API_KEY || '').trim();
+    const geminiKey = (import.meta.env.VITE_GEMINI_API_KEY || '').trim();
+    if (!groqKey && !geminiKey) { alert('No API Key found. Check .env'); return; }
     setAutoFilling(true);
     try {
       const res = await fetch(formData.pdf_url);
       const buf = await res.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: buf.slice(0) }).promise;
-      const page = await pdf.getPage(1);
-
-      // Kuhaa ang text para reference lang, DILI para i-save diretso
-      let page1Text = '';
-      try {
+      let fullText = '';
+      const pagesToRead = Math.min(pdf.numPages, 2);
+      for (let p = 1; p <= pagesToRead; p++) {
+        const page = await pdf.getPage(p);
         const content = await page.getTextContent();
-        page1Text = content.items.map((it: any) => it.str).join(' ').slice(0, 8000);
-      } catch {}
+        const txt = content.items.map((it: any) => it.str).join(' ');
+        fullText += `\n--- PAGE ${p} ---\n${txt}`;
+      }
+      fullText = fullText.trim();
+      const isScanned = fullText.length < 500;
+      console.log('PDF text length:', fullText.length, 'Is scanned?', isScanned);
 
       const applyParsed = (parsed: any) => {
         let cleanTitle = cleanTitleText(parsed.title || '');
         cleanTitle = cleanTitle.replace(/^RESOLUTION\s+NO\.?\s*\d+.*?(?=A\s+RESOLUTION|AN\s+ORDINANCE)/i, '').trim();
         cleanTitle = cleanTitle.replace(/^ORDINANCE\s+NO\.?\s*\d+.*?(?=A\s+RESOLUTION|AN\s+ORDINANCE)/i, '').trim();
         cleanTitle = cleanTitleText(cleanTitle);
+        let cleanAuthor = (parsed.author || '').trim();
+        cleanAuthor = cleanAuthor.replace(/^(Authored by|Sponsored by|Proposed by|Introduced by|Author:|Sponsor:)\s*/i, '').trim();
+        if (!cleanTitle && !parsed.ordinance_no && !cleanAuthor && !parsed.date_approved) {
+          throw new Error('AI returned empty. Try manual fill.');
+        }
         setFormData((prev) => ({
           ...prev,
           ordinance_no: parsed.ordinance_no || prev.ordinance_no,
@@ -113,16 +122,16 @@ export default function LegislativeManagement() {
           legislation_type: parsed.type === 'Resolution' ? 'Resolution' : parsed.type === 'Ordinance' ? 'Ordinance' : prev.legislation_type,
           date_approved: parsed.date_approved || prev.date_approved,
           year_series: parsed.year_series || (parsed.date_approved ? parsed.date_approved.slice(0,4) : prev.year_series),
-          author: parsed.author || prev.author,
+          author: cleanAuthor || prev.author,
         }));
       };
       const parseJson = (raw: string) => {
         try {
-          const start = raw.indexOf('{');
-          const end = raw.lastIndexOf('}');
-          if (start !== -1 && end !== -1) raw = raw.slice(start, end + 1);
-          raw = raw.replace(/```json|```/g, '').trim();
-          return JSON.parse(raw);
+          let r = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+          const start = r.indexOf('{');
+          const end = r.lastIndexOf('}');
+          if (start !== -1 && end !== -1) r = r.slice(start, end + 1);
+          return JSON.parse(r);
         } catch {
           const no = raw.match(/"ordinance_no"\s*:\s*"([^"]*)/)?.[1] || '';
           const title = raw.match(/"title"\s*:\s*"([^"]*)/)?.[1] || '';
@@ -133,48 +142,75 @@ export default function LegislativeManagement() {
           return { ordinance_no: no, title, type, date_approved: date, year_series: year, author };
         }
       };
-      const models = ['gemini-3.8-flash', 'gemini-3-flash-preview'];
 
-      // HIGH RES IMAGE - scale 2.0 para klaro mabasa ni Gemini ang mga letra
-      const viewport = page.getViewport({ scale: 2.0 });
-      const canvas = document.createElement('canvas');
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      const ctx = canvas.getContext('2d')!;
-      await page.render({ canvasContext: ctx, viewport }).promise;
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      const b64 = dataUrl.split(',')[1];
+      const jsonInstruction = `Extract and return ONLY this JSON: {"ordinance_no": "", "title": "", "type": "Ordinance", "date_approved": "YYYY-MM-DD", "year_series": "", "author": ""} RULES: Title: Start ONLY from "A RESOLUTION" or "AN ORDINANCE". STOP BEFORE WHEREAS, ENACTING CLAUSE, BE IT ORDAINED, BE IT RESOLVED, NOW THEREFORE, SECTION 1, or (Sponsored by. Do NOT include "RESOLUTION NO." or "Series of" in title. ordinance_no: Just number e.g. "16". year_series: e.g. "2026". author: Look for "Authored by", "Sponsored by", "Proposed by", "Introduced by". Full name e.g. "Hon. Juan Dela Cruz". If none, "". date_approved: YYYY-MM-DD. If none, "". Type = Ordinance or Resolution. FIX OCR errors: "CASH" not "CAsll". NEVER return empty JSON if you can read anything.`;
 
-      const prompt = `You are reading a scanned Page 1 of a Philippine LGU Ordinance or Resolution (Ubay, Bohol). The scan may have OCR errors, so READ THE IMAGE VISUALLY - do NOT copy the garbled extracted text.
-
-Extract and return ONLY this JSON: {"ordinance_no": "", "title": "", "type": "Ordinance", "date_approved": "YYYY-MM-DD", "year_series": "", "author": ""}
-
-CRITICAL ACCURACY RULES:
-- Read every word carefully from the IMAGE. Fix OCR errors: e.g. if image shows "CASH" write "CASH" not "CAsll", "WHO" not "Wllo", "REGIONAL" not "REGIoNAL", "COMPETITIONS" not "COMPETItIoNS", "OF" not "oF".
-- Use correct English spelling and proper capitalization for normal words. Keep proper names, numbers, and amounts exactly as shown.
-- Title: Start ONLY from "A RESOLUTION" or "AN ORDINANCE". STOP the title BEFORE WHEREAS, ENACTING CLAUSE, BE IT ORDAINED, BE IT RESOLVED, NOW THEREFORE, SECTION 1, or (Sponsored by / (Authored by. Do NOT include "RESOLUTION NO." or "Series of" in title. Do NOT include WHEREAS clauses.
-- Type = Ordinance or Resolution. If not found, use "".
-- Text reference (may contain OCR errors, use image as truth): ${page1Text}`;
-
-      let gData: any = null;
+      let parsed: any = null;
       let lastError = '';
-      for (const model of models) {
-        try {
-          const gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: 'image/jpeg', data: b64 } }] }], generationConfig: { temperature: 0, maxOutputTokens: 2000 } })
-          });
-          gData = await gRes.json();
-          if (gData?.error) { lastError = gData.error.message; continue; }
-          if (gData?.candidates?.[0]?.content?.parts?.[0]?.text) break;
-        } catch (e: any) { lastError = e.message; continue; }
+
+      if (!isScanned && groqKey) {
+        const models = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3-32b'];
+        for (const model of models) {
+          try {
+            console.log('Autofill TEXT - Groq:', model);
+            const gRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` },
+              body: JSON.stringify({
+                model: model,
+                messages: [{ role: 'user', content: `${jsonInstruction}\n\nPDF TEXT:\n${fullText.slice(0, 12000)}` }],
+                temperature: 0.1,
+                max_tokens: 1500
+              })
+            });
+            const gData = await gRes.json();
+            if (gData?.error) { lastError = gData.error.message; continue; }
+            const raw = gData?.choices?.[0]?.message?.content || '';
+            if (!raw.trim()) continue;
+            parsed = parseJson(raw);
+            console.log('Groq TEXT SUCCESS:', parsed);
+            break;
+          } catch (e: any) { lastError = e.message; continue; }
+        }
       }
-      if (!gData || gData?.error) { throw new Error('Gemini error: ' + lastError); }
-      let raw = gData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      if (!raw.trim()) { throw new Error('No content returned. Please try again.'); }
-      const parsed = parseJson(raw);
+
+      if (isScanned || !parsed || (!parsed.title && !parsed.ordinance_no)) {
+        if (!geminiKey) throw new Error('Scanned PDF - need Gemini key for Vision. Add VITE_GEMINI_API_KEY to .env');
+        console.log('Scanned PDF - Trying Gemini VISION...');
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 2.0 });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext('2d')!;
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const b64 = dataUrl.split(',')[1];
+        const geminiModels = ['gemini-3.8-flash', 'gemini-3-flash-preview'];
+        for (const model of geminiModels) {
+          try {
+            console.log('Autofill VISION - Gemini:', model);
+            const gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: `You are reading a scanned Page 1 of a Philippine LGU Ordinance. READ THE IMAGE VISUALLY. ${jsonInstruction}` }, { inlineData: { mimeType: 'image/jpeg', data: b64 } }] }],
+                generationConfig: { temperature: 0, maxOutputTokens: 2000 }
+              })
+            });
+            const gData = await gRes.json();
+            if (gData?.error) { lastError = gData.error.message; console.log('Gemini Vision failed', model, lastError); continue; }
+            const raw = gData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            if (!raw.trim()) continue;
+            parsed = parseJson(raw);
+            console.log('Gemini VISION SUCCESS:', parsed);
+            break;
+          } catch (e: any) { lastError = e.message; continue; }
+        }
+      }
+
+      if (!parsed) throw new Error('Autofill failed: ' + lastError);
       applyParsed(parsed);
-      alert('Auto-fill completed. Please verify the details before saving.');
+      alert('Auto-fill completed! Please verify Author, Title, and Date before saving.');
     } catch (err: any) {
       console.error(err);
       alert('Auto-fill failed: ' + (err.message || 'Please check the PDF and API Key.'));
@@ -291,9 +327,9 @@ CRITICAL ACCURACY RULES:
                       <div className="flex gap-2"><a href={formData.pdf_url} target="_blank" className="w-9 h-9 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center"><Eye className="w-5 h-5" /></a><button onClick={() => setFormData({...formData, pdf_url: '', file_url: '', document_url: ''})} className="w-9 h-9 bg-red-50 text-red-600 rounded-full flex items-center justify-center"><X className="w-5 h-5" /></button></div>
                     </div>
                     <button onClick={handleAutoFill} disabled={autoFilling} className="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white px-4 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
-                      {autoFilling ? <><Loader2 className="w-4 h-4 animate-spin" /> Reading Page 1... Please wait</> : <><Sparkles className="w-4 h-4" /> Auto-fill from PDF Page 1</>}
+                      {autoFilling ? <><Loader2 className="w-4 h-4 animate-spin" /> Reading... Please wait</> : <><Sparkles className="w-4 h-4" /> Auto-fill from PDF (Groq + Gemini)</>}
                     </button>
-                    <p className="text-xs text-slate-500 text-center">Only Page 1 will be read. Please verify before saving.</p>
+                    <p className="text-xs text-slate-500 text-center">Text PDF = Groq, Scanned PDF = Gemini Vision. Please verify Author before saving.</p>
                   </div>
                 ) : (
                   <label className="w-full bg-white border rounded-xl px-6 py-8 flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-slate-50">
