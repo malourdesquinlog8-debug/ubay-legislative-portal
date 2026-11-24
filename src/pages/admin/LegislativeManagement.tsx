@@ -1,285 +1,557 @@
-import { useState, useEffect, useRef } from 'react';
-import { supabase } from "../../lib/supabase";
-import { uploadToR2, deleteFromR2 } from "../../utils/r2Upload";
+import React, { useState, useEffect, useRef } from 'react';
+import { supabase } from '../../lib/supabase';
+import { Plus, Search, FileText, Download, Eye, Edit, Trash2, X, Upload, Loader2, Sparkles, FileUp } from 'lucide-react';
+import * as pdfjsLib from 'pdfjs-dist';
 
-type Legislation = {
-  id?: string;
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
+
+interface Legislation {
+  id: string;
   ordinance_no: string;
-  year_series: string;
   title: string;
-  description?: string;
-  type: string;
-  legislation_type?: string;
-  date_approved: string;
+  description: string;
   author: string;
-  status?: string;
+  status: string;
+  type: string;
+  date_approved: string;
   pdf_url: string;
-  file_url?: string;
-  document_url?: string;
-  pdf_filename?: string;
-  file_size?: number;
-  txt_url?: string;
-  full_text?: string;
-  created_at?: string;
+  pdf_filename: string;
+  file_size: number;
+  created_at: string;
+  legislation_type: string;
+  file_url: string;
+  document_url: string;
+  year_series: string;
+  full_text: string;
+  txt_url: string;
+}
+
+// ============ OCR / GRAMMAR AUTO-FIX DICTIONARY ============
+const fixOcrText = (s: string): string => {
+  if (!s) return s;
+  let out = s;
+  const fixes: [RegExp, string][] = [
+    [/\bLIGIITS\b/gi, 'LIGHTS'],
+    [/\bLIGIIT\b/gi, 'LIGHT'],
+    [/\bLIGHITS\b/gi, 'LIGHTS'],
+    [/\bRESOLUTON\b/gi, 'RESOLUTION'],
+    [/\bRESOLUT1ON\b/gi, 'RESOLUTION'],
+    [/\bORDINANCE\b/gi, 'ORDINANCE'],
+    [/\bORDNANCE\b/gi, 'ORDINANCE'],
+    [/\bORD1NANCE\b/gi, 'ORDINANCE'],
+    [/\bFINANCIAL ASSISTANCE\b/gi, 'FINANCIAL ASSISTANCE'],
+    [/\bBARANGAY\b/gi, 'BARANGAY'],
+    [/\bSANGGUNIANG\b/gi, 'SANGGUNIANG'],
+    [/\bMUNICIPALITY\b/gi, 'MUNICIPALITY'],
+    [/\bPROVINCE OF BOHOL\b/gi, 'PROVINCE OF BOHOL'],
+    [/\bAPPROVING\b/gi, 'APPROVING'],
+    [/\bPURCHASE\b/gi, 'PURCHASE'],
+    [/\bAMOUNT OF\b/gi, 'AMOUNT OF'],
+    [/\bTWENTY THOUSAND\b/gi, 'TWENTY THOUSAND'],
+    [/\bPESOS\b/gi, 'PESOS'],
+    [/\bREQUEST\b/gi, 'REQUEST'],
+    [/\bENDORSES\b/gi, 'ENDORSES'],
+    [/\bHUMAYHUMAY\b/gi, 'HUMAYHUMAY'],
+    [/\bGUINTABOAN\b/gi, 'GUINTABOAN'],
+    [/\bACHILA\b/gi, 'ACHILA'],
+    [/\bBOHOL\b/gi, 'BOHOL'],
+    [/\bUBAY\b/gi, 'UBAY'],
+    [/\bPUROKS\b/gi, 'PUROKS'],
+    [/\bSTREET LIGHTS\b/gi, 'STREET LIGHTS'],
+    [/\bPUBLIC SAFETY\b/gi, 'PUBLIC SAFETY'],
+    [/\bREVENUE CODE\b/gi, 'REVENUE CODE'],
+    [/\bWHEREAS\b/gi, 'WHEREAS'],
+    [/\bBE IT RESOLVED\b/gi, 'BE IT RESOLVED'],
+    [/\bBE IT ORDAINED\b/gi, 'BE IT ORDAINED'],
+  ];
+  for (const [pat, rep] of fixes) out = out.replace(pat, rep);
+  out = out.replace(/[#@£€¥§¶~^`_{}\[\]\\|<>]{2,}/g, ' ').replace(/\s+/g, ' ').trim();
+  return out;
 };
 
 export default function LegislativeManagement() {
-  const [items, setItems] = useState<Legislation[]>([]);
+  const [legislations, setLegislations] = useState<Legislation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [filterYear, setFilterYear] = useState('all');
   const [showModal, setShowModal] = useState(false);
-  const [editing, setEditing] = useState<Legislation | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [autofilling, setAutofilling] = useState(false);
-  const [search, setSearch] = useState('');
-  const [filterType, setFilterType] = useState('All');
-  const [filterYear, setFilterYear] = useState('All');
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiStatus, setAiStatus] = useState('');
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [form, setForm] = useState<Legislation>({
+  const [formData, setFormData] = useState({
     ordinance_no: '',
-    year_series: new Date().getFullYear().toString(),
     title: '',
+    description: '',
+    author: '',
+    status: 'Approved',
     type: 'Ordinance',
     date_approved: '',
-    author: '',
-    pdf_url: '',
-    txt_url: '',
+    legislation_type: 'Ordinance',
+    year_series: new Date().getFullYear().toString(),
     full_text: '',
   });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  const fetchItems = async () => {
+  useEffect(() => { fetchLegislations(); }, []);
+
+  const fetchLegislations = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('legislations')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (error) {
-      console.log('FETCH ERROR:', error);
-      alert('Fetch error: ' + error.message);
-    }
-    if (!error && data) setItems(data as Legislation[]);
+    const { data, error } = await supabase.from('legislations').select('*').order('created_at', { ascending: false });
+    if (!error && data) setLegislations(data);
     setLoading(false);
   };
 
-  useEffect(() => { fetchItems(); }, []);
-
-  const resetForm = () => {
-    setEditing(null);
-    setForm({
-      ordinance_no: '',
-      year_series: new Date().getFullYear().toString(),
-      title: '',
-      type: 'Ordinance',
-      date_approved: '',
-      author: '',
-      pdf_url: '',
-      txt_url: '',
-      full_text: '',
-    });
-  };
-
-  // ============ GROQ ONLY AUTOFILL ============
-  const handleGroqAutofill = async (file: File) => {
-    const groqKey = import.meta.env.VITE_GROQ_API_KEY;
-    if (!groqKey) {
-      alert('Wala pa ang VITE_GROQ_API_KEY sa .env / Vercel bro!');
-      return;
+  const extractTextWithPdfjs = async (file: File): Promise<string> => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const pageText = content.items.map((item: any) => item.str).join(' ');
+      fullText += pageText + '\n';
     }
-    setAutofilling(true);
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const uint8 = new Uint8Array(arrayBuffer);
-      let raw = '';
-      for (let i = 0; i < uint8.length; i++) raw += String.fromCharCode(uint8[i]);
-      const pdfText = raw.replace(/[^\x20-\x7E\n\r]/g, ' ').replace(/\s+/g, ' ').slice(0, 15000);
-      if (pdfText.length < 100) {
-        alert('Dili mabasa ni Groq ang scanned PDF bro! Text PDF lang. Kung scanned, manual type lang sa title.');
-        setAutofilling(false);
-        return;
-      }
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` },
-        body: JSON.stringify({
-          model: 'openai/gpt-oss-120b',
-          temperature: 0.1,
-          messages: [
-            { role: 'system', content: `Ikaw ay taga-extract ng Ordinance / Resolution details. RULES: Title kuhaa lang hangtod sa WHEREAS o ENACTING. AYAW I-APIL ANG WHEREAS. Ibalik lang ug JSON.` },
-            { role: 'user', content: `I-extract ni:\n\n${pdfText}\n\nIbalik nga JSON: {"ordinance_no":"","year_series":"","title":"","type":"","date_approved":"","author":"","full_text":""}` }
-          ]
-        }),
-      });
-      if (!res.ok) throw new Error('Groq Error: ' + (await res.text()).slice(0, 300));
-      const data = await res.json();
-      let content = data.choices?.[0]?.message?.content || '';
-      content = content.replace(/```json/g, '').replace(/```/g, '').trim();
-      const start = content.indexOf('{');
-      const end = content.lastIndexOf('}');
-      if (start !== -1 && end !== -1) content = content.slice(start, end + 1);
-      const parsed = JSON.parse(content);
-      let cleanTitle = (parsed.title || '').trim();
-      for (const w of ['WHEREAS', 'ENACTING', 'BE IT ENACTED', 'BE IT RESOLVED']) {
-        const idx = cleanTitle.toUpperCase().indexOf(w);
-        if (idx > 0) cleanTitle = cleanTitle.slice(0, idx).trim();
-      }
-      cleanTitle = cleanTitle.replace(/[.,;\s]+$/, '');
-      setForm(prev => ({
-        ...prev,
-        ordinance_no: parsed.ordinance_no ? String(parsed.ordinance_no).trim() : prev.ordinance_no,
-        year_series: parsed.year_series ? String(parsed.year_series).trim() : prev.year_series,
-        title: cleanTitle || prev.title,
-        type: parsed.type === 'Resolution' ? 'Resolution' : 'Ordinance',
-        date_approved: parsed.date_approved || prev.date_approved,
-        author: parsed.author || prev.author,
-        full_text: parsed.full_text || prev.full_text,
-      }));
-      alert('Goods na bro! Groq na nag-autofill!');
-    } catch (e: any) {
-      alert('Groq Autofill failed: ' + e.message);
-    } finally { setAutofilling(false); }
+    return fullText;
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const extractTextWithOCR = async (file: File): Promise<string> => {
+    setAiStatus('📷 Image PDF ni - gi-OCR nako (Libre, Offline)...');
+    const libName = 'tess' + 'eract.js';
+    const ocrMod: any = await import(/* @vite-ignore */ libName);
+    const OCR = ocrMod.default || ocrMod;
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let ocrText = '';
+    const pagesToOcr = Math.min(pdf.numPages, 3);
+    for (let i = 1; i <= pagesToOcr; i++) {
+      setAiStatus(`📷 Gi-OCR ang page ${i}/${pagesToOcr}... (${Math.round((i / pagesToOcr) * 100)}%)`);
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale: 2.0 });
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d')!;
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      await page.render({ canvasContext: context, viewport }).promise;
+      const { data: { text } } = await OCR.recognize(canvas, 'eng', {
+        logger: (m: any) => {
+          if (m.status === 'recognizing text') {
+            setOcrProgress(Math.round(m.progress * 100));
+          }
+        },
+      });
+      ocrText += text + '\n';
+    }
+    setOcrProgress(0);
+    return ocrText;
+  };
+
+  const parseFromText = (text: string, filename: string) => {
+    let title = '';
+    let author = '';
+    let dateApproved = '';
+    let ordinanceNo = '';
+    const fileMatch = filename.match(/(?:RESO|ORD|RESOLUTION|ORDINANCE)[\s\-_]*NO[\s\-_]*(\d+)/i);
+    if (fileMatch) ordinanceNo = fileMatch[1];
+    const yearMatch = filename.match(/S(\d{4})/i);
+    let yearSeries = yearMatch ? yearMatch[1] : new Date().getFullYear().toString();
+    const cleanText = fixOcrText(text.replace(/\s+/g, ' ').trim());
+    const titlePatterns = [
+      /(?:A RESOLUTION|AN ORDINANCE)[\s\S]{0,5}?(.*?)(?:\s+Sponsored by|\s+SPONSORED BY|\s+WHEREAS|\s+Whereas|\s+BE IT RESOLVED|\s+BE IT ORDAINED|$)/i,
+      /(?:RESOLUTION NO\.?\s*\d+[^\n]*\n)(.*?)(?:\s+Sponsored by|\s+WHEREAS|$)/i,
+    ];
+    for (const pat of titlePatterns) {
+      const m = cleanText.match(pat);
+      if (m && m[1] && m[1].trim().length > 10) {
+        title = fixOcrText(m[1].trim().replace(/^\W+/, '').substring(0, 500));
+        break;
+      }
+    }
+    if (!title) {
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 20);
+      title = fixOcrText(lines.find(l => !/RESOLUTION|ORDINANCE|REPUBLIC|PROVINCE|MUNICIPALITY|UBAY|BOHOL/i.test(l)) || '');
+    }
+    const authorMatch = text.match(/Sponsored by[:\s]*([A-Z][A-Za-z\s\.\-]+?)(?:\n|SB Member|Sangguniang|Author|$)/i);
+    if (authorMatch) author = fixOcrText(authorMatch[1].trim());
+    const dateMatch = text.match(/(?:APPROVED|ADOPTED|ENACTED)[\s\S]{0,30}?(\w+\s+\d{1,2},?\s+\d{4}|\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2})/i);
+    if (dateMatch) {
+      const parsed = new Date(dateMatch[1]);
+      if (!isNaN(parsed.getTime())) dateApproved = parsed.toISOString().split('T')[0];
+    }
+    return { title, author, dateApproved, ordinanceNo, yearSeries };
+  };
+
+  const autofillWithGroq = async (extractedText: string, filename: string) => {
+    setAiLoading(true);
+    setAiStatus('🤖 Gi-analyze ni Groq ang document...');
+    try {
+      const groqKey = import.meta.env.VITE_GROQ_API_KEY;
+      if (!groqKey) throw new Error('No Groq key');
+      const cleanedText = fixOcrText(extractedText);
+      const prompt = `Ikaw ay assistant para sa Ubay Legislative Portal. I-extract ang info gikan sa document text sa ubos ug ibalik LANG ug JSON, walay lain text.
+
+Text:
+${cleanedText.substring(0, 8000)}
+
+Filename: ${filename}
+
+Ibalik nga JSON format:
+{
+  "ordinance_no": "395",
+  "title": "tibuok title sa resolution/ordinance",
+  "description": "1-2 sentences summary sa Bisaya o English",
+  "author": "ngalan sa sponsor / author",
+  "date_approved": "YYYY-MM-DD",
+  "type": "Resolution o Ordinance",
+  "year_series": "2026"
+}
+
+STRICT RULES:
+- title: KOPYAHA WORD-FOR-WORD gikan sa document! AYAW USBA, AYAW PARAPHRASE!
+- description: I-SUMMARY sa sakto nga grammar!
+- author: Tibuok ngalan, apil middle initial.
+- ordinance_no gikan sa filename o text, numero lang
+- Kung walay makit-an, ibutang ""
+- Ayaw pag-inventa ug numero o ngalan`;
+
+      const MODELS = [
+        'openai/gpt-oss-120b',
+        'openai/gpt-oss-20b',
+        'meta-llama/llama-4-scout-17b-16e-instruct',
+        'meta-llama/llama-4-maverick-17b-128e-instruct',
+        'qwen/qwen3-32b',
+      ];
+
+      let parsed: any = null;
+      let lastError = '';
+      for (const model of MODELS) {
+        try {
+          console.log('Trying Groq model:', model);
+          setAiStatus(`🤖 Gi-try ang model ${model}...`);
+          const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: model,
+              messages: [{ role: 'user', content: prompt }],
+              temperature: 0.1,
+              response_format: { type: 'json_object' },
+            }),
+          });
+          if (!res.ok) {
+            const errText = await res.text();
+            console.log(`Model ${model} failed:`, res.status, errText);
+            lastError = res.status + ' ' + model;
+            continue;
+          }
+          const data = await res.json();
+          const content = data.choices?.[0]?.message?.content;
+          if (!content) continue;
+          parsed = JSON.parse(content);
+          console.log('SUCCESS with model:', model);
+          break;
+        } catch (e: any) {
+          console.log(`Model ${model} error:`, e.message);
+          continue;
+        }
+      }
+      if (!parsed) throw new Error('Tanan Groq models napakyas: ' + lastError);
+      parsed.title = fixOcrText(parsed.title || '');
+      parsed.description = fixOcrText(parsed.description || '');
+      parsed.author = fixOcrText(parsed.author || '');
+      setFormData(prev => ({
+        ...prev,
+        ordinance_no: parsed.ordinance_no || prev.ordinance_no,
+        title: parsed.title || prev.title,
+        description: parsed.description || prev.description,
+        author: parsed.author || prev.author,
+        date_approved: parsed.date_approved || prev.date_approved,
+        type: parsed.type || prev.type,
+        legislation_type: parsed.type || prev.legislation_type,
+        year_series: parsed.year_series || prev.year_series,
+        full_text: extractedText.substring(0, 50000),
+      }));
+      setAiStatus('✅ Na-autofill na ni Groq!');
+    } catch (err) {
+      console.error(err);
+      setAiStatus('⚠️ Groq napakyas - gi-parse lang nako manually');
+      const manual = parseFromText(extractedText, filename);
+      setFormData(prev => ({
+        ...prev,
+        ordinance_no: manual.ordinanceNo || prev.ordinance_no,
+        title: fixOcrText(manual.title) || prev.title,
+        author: fixOcrText(manual.author) || prev.author,
+        date_approved: manual.dateApproved || prev.date_approved,
+        year_series: manual.yearSeries || prev.year_series,
+        full_text: extractedText.substring(0, 50000),
+      }));
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setSelectedFile(file);
+    setAiLoading(true);
+    setAiStatus('📄 Gi-extract ang text sa PDF...');
     try {
-      const pdfUrl = await uploadToR2(file, 'legislations');
-      setForm(prev => ({ ...prev, pdf_url: pdfUrl, pdf_filename: file.name, file_size: file.size }));
-      await handleGroqAutofill(file);
-    } catch (err: any) { alert('Upload failed: ' + err.message); }
+      let extractedText = await extractTextWithPdfjs(file);
+      const weirdChars = (extractedText.match(/[#@£€¥§¶~^`_{}\[\]\\|<>]/g) || []).length;
+      const garbageRatio = weirdChars / (extractedText.length || 1);
+      if (extractedText.trim().length < 50 || garbageRatio > 0.02) {
+        setAiStatus('📷 Garbage ang pdfjs text - gi-OCR nako para klaro...');
+        extractedText = await extractTextWithOCR(file);
+      } else {
+        setAiStatus('✅ Na-extract ang text via pdfjs!');
+      }
+      extractedText = fixOcrText(extractedText);
+      const manual = parseFromText(extractedText, file.name);
+      if (manual.ordinanceNo) {
+        setFormData(prev => ({ ...prev, ordinance_no: manual.ordinanceNo, year_series: manual.yearSeries }));
+      }
+      if (extractedText.trim().length > 50) {
+        await autofillWithGroq(extractedText, file.name);
+      } else {
+        setAiStatus('⚠️ Walay ma-extract nga text bisan sa OCR - manual fill lang bro');
+        setAiLoading(false);
+      }
+    } catch (err) {
+      console.error(err);
+      setAiStatus('❌ Napakyas pag-extract - manual fill lang');
+      setAiLoading(false);
+    }
   };
 
-  const handleSave = async () => {
-    if (!form.ordinance_no || !form.title || !form.pdf_url) {
-      alert('Kulang bro! Number, Title, ug PDF kinahanglan!');
-      return;
-    }
-    setSaving(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUploading(true);
     try {
-      let txtUrl = form.txt_url || '';
-      if (form.full_text && !txtUrl) {
-        const blob = new Blob([form.full_text], { type: 'text/plain' });
-        const txtFile = new File([blob], `${form.ordinance_no}-${form.year_series}.txt`, { type: 'text/plain' });
-        txtUrl = await uploadToR2(txtFile, 'legislations-txt');
+      let pdfUrl = '';
+      let pdfFilename = '';
+      let fileSize = 0;
+      if (selectedFile) {
+        const fileName = `${Date.now()}_${selectedFile.name}`;
+        const { error: uploadError } = await supabase.storage.from('legislations').upload(fileName, selectedFile);
+        if (uploadError) throw uploadError;
+        const { data: urlData } = supabase.storage.from('legislations').getPublicUrl(fileName);
+        pdfUrl = urlData.publicUrl;
+        pdfFilename = selectedFile.name;
+        fileSize = selectedFile.size;
       }
       const payload = {
-        ordinance_no: form.ordinance_no.trim(),
-        year_series: form.year_series.trim(),
-        title: form.title.trim(),
-        type: form.type,
-        legislation_type: form.type,
-        date_approved: form.date_approved || null,
-        author: form.author.trim(),
-        pdf_url: form.pdf_url,
-        file_url: form.pdf_url,
-        document_url: form.pdf_url,
-        pdf_filename: form.pdf_filename || null,
-        file_size: form.file_size || null,
-        txt_url: txtUrl,
-        full_text: form.full_text || null,
-        status: 'Approved',
+        ordinance_no: formData.ordinance_no,
+        title: formData.title,
+        description: formData.description,
+        author: formData.author,
+        status: formData.status,
+        type: formData.type,
+        date_approved: formData.date_approved || null,
+        legislation_type: formData.legislation_type,
+        year_series: formData.year_series,
+        full_text: formData.full_text,
+        pdf_url: pdfUrl,
+        pdf_filename: pdfFilename,
+        file_size: fileSize,
+        file_url: pdfUrl,
+        document_url: pdfUrl,
       };
-      if (editing?.id) {
-        const { error } = await supabase.from('legislations').update(payload).eq('id', editing.id);
+      if (editingId) {
+        const { error } = await supabase.from('legislations').update(payload).eq('id', editingId);
         if (error) throw error;
       } else {
         const { error } = await supabase.from('legislations').insert([payload]);
         if (error) throw error;
       }
-      setShowModal(false); resetForm(); fetchItems(); alert('Saved na bro!');
-    } catch (err: any) { alert('Save failed: ' + err.message); }
-    finally { setSaving(false); }
+      setShowModal(false);
+      setEditingId(null);
+      resetForm();
+      fetchLegislations();
+    } catch (err: any) {
+      alert('Error: ' + err.message);
+    } finally {
+      setUploading(false);
+    }
   };
 
-  const handleDelete = async (item: Legislation) => {
-    if (!confirm(`Delete ${item.type} No. ${item.ordinance_no}? Mawala sad ang PDF sa R2!`)) return;
-    try {
-      const { error } = await supabase.from('legislations').delete().eq('id', item.id);
-      if (error) throw error;
-      if (item.pdf_url) await deleteFromR2(item.pdf_url);
-      if (item.txt_url) await deleteFromR2(item.txt_url);
-      fetchItems(); alert('Deleted na bro, apil R2!');
-    } catch (err: any) { alert('Delete failed: ' + err.message); }
+  const resetForm = () => {
+    setFormData({
+      ordinance_no: '', title: '', description: '', author: '',
+      status: 'Approved', type: 'Ordinance', date_approved: '',
+      legislation_type: 'Ordinance', year_series: new Date().getFullYear().toString(), full_text: '',
+    });
+    setSelectedFile(null);
+    setAiStatus('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleEdit = (item: Legislation) => {
-    setEditing(item);
-    setForm({ ...item, year_series: item.year_series || (item.date_approved ? String(item.date_approved).slice(0, 4) : new Date().getFullYear().toString()) });
+  const handleEdit = (leg: Legislation) => {
+    setEditingId(leg.id);
+    setFormData({
+      ordinance_no: leg.ordinance_no || '', title: leg.title || '', description: leg.description || '',
+      author: leg.author || '', status: leg.status || 'Approved', type: leg.type || 'Ordinance',
+      date_approved: leg.date_approved || '', legislation_type: leg.legislation_type || 'Ordinance',
+      year_series: leg.year_series || '', full_text: leg.full_text || '',
+    });
     setShowModal(true);
   };
 
-  const filtered = items.filter(it => {
-    const matchSearch = (it.title + ' ' + it.ordinance_no + ' ' + (it.author || '')).toLowerCase().includes(search.toLowerCase());
-    const matchType = filterType === 'All' || it.type === filterType || it.legislation_type === filterType;
-    const matchYear = filterYear === 'All' || it.year_series === filterYear || (it.date_approved && String(it.date_approved).slice(0, 4) === filterYear);
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete gyud ni?')) return;
+    await supabase.from('legislations').delete().eq('id', id);
+    fetchLegislations();
+  };
+
+  const allYears = Array.from(new Set(legislations.map(l => l.year_series).filter(Boolean))).sort((a, b) => Number(b) - Number(a));
+
+  const filtered = legislations.filter(l => {
+    const matchSearch = (l.title + l.ordinance_no + l.author).toLowerCase().includes(searchTerm.toLowerCase());
+    const matchType = filterType === 'all' || l.type === filterType || l.legislation_type === filterType;
+    const matchYear = filterYear === 'all' || l.year_series === filterYear;
     return matchSearch && matchType && matchYear;
   });
 
-  const years = Array.from(new Set(items.map(i => i.year_series || (i.date_approved ? String(i.date_approved).slice(0, 4) : '')))).filter(Boolean).sort((a, b) => Number(b) - Number(a));
-
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto">
-      <div className="flex flex-col md:flex-row justify-between gap-3 mb-4">
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Legislative Management</h1>
-        <button onClick={() => { resetForm(); setShowModal(true); }} className="bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold">+ Add Legislation</button>
+        <button onClick={() => { resetForm(); setShowModal(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+          <Plus size={18} /> Add Legislation
+        </button>
       </div>
-      <div className="flex flex-col md:flex-row gap-2 mb-4">
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search title, number, author..." className="flex-1 border p-2 rounded-lg" />
-        <select value={filterType} onChange={e => setFilterType(e.target.value)} className="border p-2 rounded-lg">
-          <option value="All">All Types</option><option value="Ordinance">Ordinance</option><option value="Resolution">Resolution</option>
+
+      <div className="flex gap-3 mb-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-3 text-gray-400" size={18} />
+          <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search title, number, author..." className="w-full pl-10 pr-4 py-2 border rounded-lg" />
+        </div>
+        <select value={filterType} onChange={e => setFilterType(e.target.value)} className="border rounded-lg px-3">
+          <option value="all">All Types</option>
+          <option value="Ordinance">Ordinance</option>
+          <option value="Resolution">Resolution</option>
         </select>
-        <select value={filterYear} onChange={e => setFilterYear(e.target.value)} className="border p-2 rounded-lg">
-          <option value="All">All Years</option>{years.map(y => <option key={y} value={y}>{y}</option>)}
+        <select value={filterYear} onChange={e => setFilterYear(e.target.value)} className="border rounded-lg px-3">
+          <option value="all">All Years</option>
+          {allYears.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
       </div>
+
       {loading ? <p>Loading...</p> : (
-        <div className="overflow-x-auto bg-white rounded-lg shadow">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-100"><tr><th className="p-3 text-left">No. / Year</th><th className="p-3 text-left">Title</th><th className="p-3 text-left">Type</th><th className="p-3 text-left">Date</th><th className="p-3 text-left">Author</th><th className="p-3 text-left">Actions</th></tr></thead>
+        <div className="bg-white rounded-lg shadow overflow-x-auto">
+          <table className="w-full" style={{ tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: '70px' }} />
+              <col style={{ width: 'auto' }} />
+              <col style={{ width: '180px' }} />
+              <col style={{ width: '70px' }} />
+              <col style={{ width: '110px' }} />
+              <col style={{ width: '100px' }} />
+            </colgroup>
+            <thead className="bg-gray-50"><tr>
+              <th className="p-3 text-left">No.</th>
+              <th className="p-3 text-left">Title</th>
+              <th className="p-3 text-left">Author</th>
+              <th className="p-3 text-left">Year</th>
+              <th className="p-3 text-left">Date</th>
+              <th className="p-3 text-left">Actions</th>
+            </tr></thead>
             <tbody>
-              {filtered.map(item => (
-                <tr key={item.id} className="border-t">
-                  <td className="p-3 font-semibold whitespace-nowrap">{item.ordinance_no} • {item.year_series || (item.date_approved ? String(item.date_approved).slice(0, 4) : '-')}</td>
-                  <td className="p-3">{item.title}</td>
-                  <td className="p-3"><span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">{item.type}</span></td>
-                  <td className="p-3 whitespace-nowrap">{item.date_approved || '-'}</td>
-                  <td className="p-3">{item.author || '-'}</td>
-                  <td className="p-3 whitespace-nowrap">
-                    <button onClick={() => handleEdit(item)} className="bg-yellow-500 text-white px-3 py-1 rounded mr-1">Edit</button>
-                    <button onClick={() => handleDelete(item)} className="bg-red-600 text-white px-3 py-1 rounded">Delete</button>
+              {filtered.map(leg => (
+                <tr key={leg.id} className="border-t align-top">
+                  <td className="p-3 font-medium whitespace-nowrap">{leg.ordinance_no}</td>
+                  <td className="p-3 leading-snug" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{leg.title}</td>
+                  <td className="p-3 leading-snug" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{leg.author}</td>
+                  <td className="p-3 whitespace-nowrap">{leg.year_series}</td>
+                  <td className="p-3 whitespace-nowrap">{leg.date_approved}</td>
+                  <td className="p-3 flex gap-2">
+                    {leg.pdf_url && <a href={leg.pdf_url} target="_blank" rel="noreferrer" className="text-blue-600"><Eye size={18} /></a>}
+                    <button onClick={() => handleEdit(leg)} className="text-green-600"><Edit size={18} /></button>
+                    <button onClick={() => handleDelete(leg.id)} className="text-red-600"><Trash2 size={18} /></button>
                   </td>
                 </tr>
               ))}
-              {filtered.length === 0 && <tr><td colSpan={6} className="p-4 text-center text-gray-500">Walay nakit-an bro.</td></tr>}
             </tbody>
           </table>
         </div>
       )}
+
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-2xl max-h- flex flex-col overflow-hidden">
-            <div className="p-4 border-b shrink-0 flex justify-between items-center">
-              <h2 className="text-lg font-bold">{editing ? 'Edit Legislation' : 'Add Legislation'}</h2>
-              <button onClick={() => setShowModal(false)} className="text-2xl leading-none">&times;</button>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-2xl max-h- overflow-y-auto">
+            <div className="flex justify-between items-center p-5 border-b sticky top-0 bg-white">
+              <h2 className="text-xl font-bold">{editingId ? 'Edit' : 'Add'} Legislation</h2>
+              <button onClick={() => { setShowModal(false); resetForm(); }}><X /></button>
             </div>
-            <div className="p-4 space-y-3 overflow-y-auto flex-1">
-              <div><label className="font-semibold text-sm">PDF File</label><input type="file" accept=".pdf" ref={fileRef} onChange={handleFileChange} className="w-full border p-2 rounded-lg mt-1" />{autofilling && <p className="text-blue-600 text-sm mt-1">⏳ Groq nag-basa sa PDF... Hulata bro...</p>}{form.pdf_url && <a href={form.pdf_url} target="_blank" rel="noreferrer" className="text-blue-600 text-sm underline">View Uploaded PDF</a>}</div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className="font-semibold text-sm">Number *</label><input value={form.ordinance_no} onChange={e => setForm({ ...form, ordinance_no: e.target.value })} className="w-full border p-2 rounded-lg mt-1" placeholder="e.g. 734" /></div>
-                <div><label className="font-semibold text-sm">Year Series</label><input value={form.year_series} onChange={e => setForm({ ...form, year_series: e.target.value })} className="w-full border p-2 rounded-lg mt-1" placeholder="2026" /></div>
+            <form onSubmit={handleSubmit} className="p-5 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="block text-sm font-medium">Ordinance / Reso No.</label>
+                  <input value={formData.ordinance_no} onChange={e => setFormData({ ...formData, ordinance_no: e.target.value })} className="w-full border rounded-lg px-3 py-2" placeholder="e.g. 395" /></div>
+                <div><label className="block text-sm font-medium">Year Series</label>
+                  <input value={formData.year_series} onChange={e => setFormData({ ...formData, year_series: e.target.value })} className="w-full border rounded-lg px-3 py-2" placeholder="2026" /></div>
               </div>
-              <div><label className="font-semibold text-sm">Type</label><select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} className="w-full border p-2 rounded-lg mt-1"><option value="Ordinance">Ordinance</option><option value="Resolution">Resolution</option></select></div>
-              <div><label className="font-semibold text-sm">Title * (mohunong sa WHEREAS)</label><textarea value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} rows={3} className="w-full border p-2 rounded-lg mt-1" placeholder="AN ORDINANCE..." /></div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className="font-semibold text-sm">Date Approved</label><input type="date" value={form.date_approved} onChange={e => setForm({ ...form, date_approved: e.target.value })} className="w-full border p-2 rounded-lg mt-1" /></div>
-                <div><label className="font-semibold text-sm">Author / Sponsor</label><input value={form.author} onChange={e => setForm({ ...form, author: e.target.value })} className="w-full border p-2 rounded-lg mt-1" placeholder="Hon. ..." /></div>
+              <div><label className="block text-sm font-medium">Title</label>
+                <textarea value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} rows={3} className="w-full border rounded-lg px-3 py-2" /></div>
+              <div><label className="block text-sm font-medium">Description</label>
+                <textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} rows={2} className="w-full border rounded-lg px-3 py-2" /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="block text-sm font-medium">Author / Sponsor</label>
+                  <input value={formData.author} onChange={e => setFormData({ ...formData, author: e.target.value })} className="w-full border rounded-lg px-3 py-2" /></div>
+                <div><label className="block text-sm font-medium">Date Approved</label>
+                  <input type="date" value={formData.date_approved} onChange={e => setFormData({ ...formData, date_approved: e.target.value })} className="w-full border rounded-lg px-3 py-2" /></div>
               </div>
-              <div><label className="font-semibold text-sm">Full Text (WHEREAS apil, para sa chatbot)</label><textarea value={form.full_text} onChange={e => setForm({ ...form, full_text: e.target.value })} rows={4} className="w-full border p-2 rounded-lg mt-1" placeholder="Auto-fill ni Groq..." /></div>
-            </div>
-            <div className="p-4 border-t shrink-0 flex justify-end gap-2 bg-white">
-              <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg">Cancel</button>
-              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-blue-700 text-white rounded-lg font-semibold disabled:opacity-50">{saving ? 'Saving...' : 'Save'}</button>
-            </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="block text-sm font-medium">Type</label>
+                  <select value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value, legislation_type: e.target.value })} className="w-full border rounded-lg px-3 py-2">
+                    <option>Ordinance</option><option>Resolution</option>
+                  </select></div>
+                <div><label className="block text-sm font-medium">Status</label>
+                  <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })} className="w-full border rounded-lg px-3 py-2">
+                    <option>Approved</option><option>Pending</option><option>Repealed</option>
+                  </select></div>
+              </div>
+
+              <div className="border-t pt-4">
+                <label className="block text-sm font-medium mb-2">📄 Upload PDF (sa ubos)</label>
+                <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-gray-50">
+                  <FileUp className="mx-auto mb-2 text-gray-400" size={32} />
+                  {selectedFile ? <p className="font-medium">{selectedFile.name}</p> : <p className="text-gray-500">Click to upload PDF</p>}
+                  <p className="text-xs text-gray-400 mt-1">PDF lang - auto-extract + OCR kung image PDF</p>
+                </div>
+                <input ref={fileInputRef} type="file" accept=".pdf" className="hidden" onChange={handleFileSelect} />
+
+                {aiLoading && (
+                  <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2">
+                    <Loader2 className="animate-spin text-blue-600" size={18} />
+                    <span className="text-sm text-blue-800">{aiStatus || 'Gi-process...'}</span>
+                  </div>
+                )}
+                {!aiLoading && aiStatus && (
+                  <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">{aiStatus}</div>
+                )}
+                {ocrProgress > 0 && (
+                  <div className="mt-2"><div className="w-full bg-gray-200 rounded-full h-2"><div className="bg-blue-600 h-2 rounded-full" style={{ width: `${ocrProgress}%` }}></div></div>
+                    <p className="text-xs mt-1">OCR: {ocrProgress}%</p></div>
+                )}
+                {formData.full_text && (
+                  <p className="text-xs text-gray-500 mt-2">✅ Full text na-capture: {formData.full_text.length.toLocaleString()} characters - magamit na ni sa chatbot!</p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => { setShowModal(false); resetForm(); }} className="px-4 py-2 border rounded-lg">Cancel</button>
+                <button type="submit" disabled={uploading} className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2">
+                  {uploading && <Loader2 className="animate-spin" size={16} />} {uploading ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
