@@ -72,19 +72,19 @@ export default function AdminLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex font-sans">
-      {/* Sidebar */}
+    <div className="h-screen bg-slate-100 flex font-sans overflow-hidden">
+      {/* Sidebar - STEADY NA, DILI NA MOUBAN UG SCROLL */}
       <aside
         className={clsx(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-lgu-blue-900 text-white transform transition-transform duration-200 ease-in-out md:translate-x-0 md:static md:flex-shrink-0",
+          "fixed inset-y-0 left-0 z-50 w-64 bg-lgu-blue-900 text-white transform transition-transform duration-200 ease-in-out md:translate-x-0 md:static md:shrink-0 md:sticky md:top-0 md:h-screen md:flex md:flex-col md:overflow-hidden",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="h-16 flex items-center px-6 bg-lgu-blue-800 font-serif font-bold text-xl tracking-wider">
+        <div className="h-16 shrink-0 flex items-center px-6 bg-lgu-blue-800 font-serif font-bold text-xl tracking-wider">
           <span className="text-lgu-gold-500 mr-2">SB</span> ADMIN
         </div>
 
-        <div className="p-4">
+        <div className="p-4 flex-1 overflow-y-auto">
           <div className="flex items-center mb-8 px-2">
             <div className="w-10 h-10 rounded-full bg-lgu-gold-500 flex items-center justify-center text-lgu-blue-900 font-bold text-lg">
               {(displayName || '?').charAt(0).toUpperCase()}
@@ -115,7 +115,7 @@ export default function AdminLayout() {
           </nav>
         </div>
 
-        <div className="absolute bottom-0 w-full p-4 bg-lgu-blue-800">
+        <div className="shrink-0 w-full p-4 bg-lgu-blue-800">
           {/* FIX: Dili na diretso logout - mo-abli sa pop-up */}
           <button
             onClick={() => setShowLogoutModal(true)}
@@ -127,9 +127,9 @@ export default function AdminLayout() {
         </div>
       </aside>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <div className="md:hidden bg-white shadow-sm h-16 flex items-center justify-between px-4">
+      {/* Main Content - KINI RA ANG MO-SCROLL */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-screen">
+        <div className="md:hidden bg-white shadow-sm h-16 shrink-0 flex items-center justify-between px-4">
           <span className="font-serif font-bold text-lgu-blue-900">SB Admin Panel</span>
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-slate-500">
             {sidebarOpen ? <X /> : <Menu />}

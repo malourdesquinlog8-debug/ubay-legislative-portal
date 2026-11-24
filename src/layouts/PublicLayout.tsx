@@ -83,12 +83,12 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       <main className="flex-grow bg-transparent">{children}</main>
       <AIChatbot />
       
-      <footer className="bg-[#0f172a] text-white mt-10">
-        <div className="max-w-[1720px] mx-auto px-4 md:px-8 py-8">
+                  <footer className="bg-[#0f172a] text-white mt-10">
+        <div className="max-w- mx-auto px-4 md:px-8 py-10 md:py-8">
           <div className="flex items-start gap-4 md:gap-6">
             <img src="/republika.png" alt="Republika" className="w-14 h-14 md:w-20 md:h-20 object-contain flex-shrink-0 mt-1" />
             <div className="text-left">
-              <h2 className="font-bold text-left text- tracking-[0.2em] uppercase mb-6 block" style={{ color: '#ffffff' }}>
+              <h2 className="font-bold text-left text- md:text-base tracking-[0.2em] uppercase mb-6 block" style={{ color: '#ffffff' }}>
                 Government Links
               </h2>
               <div className="grid grid-cols-2 gap-8 text- md:text-xs text-gray-300 max-w-2xl text-left">
@@ -113,7 +113,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
           </div>
         </div>
         <div className="border-t border-white/10">
-          <div className="max-w-[1720px] mx-auto px-4 py-3 text-center text- text-gray-400">
+          <div className="max-w- mx-auto px-4 py-3 text-center text- md:text-base text-gray-400">
             © 2026 Sangguniang Bayan of Ubay. All rights reserved.
           </div>
         </div>

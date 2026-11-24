@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Search, FileText, User, Filter, Eye, X, ZoomIn, ZoomOut, RotateCw, Shield } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Search, FileText, User, Filter, Eye, X, ZoomIn, ZoomOut, RotateCw, Shield, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function Ordinances() {
@@ -14,6 +14,13 @@ export default function Ordinances() {
   const [requestForm, setRequestForm] = useState({ name: '', email: '', phone: '', purpose: '' });
   const [submitting, setSubmitting] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(100);
+  // PAGINATION - BY 10 LANG PER PAGE
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  // NARROW FILTER - AUTHOR + YEAR SERIES
+  const [showNarrowFilter, setShowNarrowFilter] = useState(false);
+  const [filterAuthor, setFilterAuthor] = useState('All');
+  const [filterYear, setFilterYear] = useState('All');
 
   useEffect(() => { fetchLegislations(); }, []);
   
@@ -45,10 +52,94 @@ export default function Ordinances() {
     setLoading(false);
   };
 
+  const cleanTitle = (title: string) => { if (!title) return ''; return title.replace(/^[\s\-–—•\u00A0]+/, '').replace(/\s+/g, ' ').trim(); };
+  const getYear = (item: any) => item?.year_series || (item?.date_approved ? new Date(item.date_approved).getFullYear().toString() : '');
+
+  // FIX: NORMALIZE AUTHOR - PARA DILI MAG-BALIK-BALIK
+  // "Hon. Daniel R. Delima" ug "Hon. Daniel R. Delima, II" -> usa ra!
+  // "Hon. Galicano E. Alup" ug "Hon. Galicano E. Atup" -> usa ra!
+  // "Hon. Glaiza Mae Atuel- Revilla" ug "Hon. Glaiza Mae S. Atuel" -> usa ra!
+  const normalizeAuthor = (name: string) => {
+    if (!name) return '';
+    let n = name.toLowerCase().trim();
+    n = n.replace(/^hon\.?\s+/i, ''); // tangtangon ang "Hon."
+    n = n.replace(/,/g, ' '); // "," -> space
+    n = n.replace(/\b(ii|iii|iv|jr\.?|sr\.?|ii\.?|iii\.?)\b/g, ''); // tangtangon ang II, Jr, III
+    n = n.replace(/-/g, ' '); // "Atuel- Revilla" -> "Atuel Revilla"
+    n = n.replace(/\./g, ' '); // tangtangon ang "."
+    n = n.replace(/\b[a-z]\b/g, ''); // tangtangon ang middle initial nga "R", "S", "E"
+    n = n.replace(/\s+/g, ' ').trim();
+    // FIX TYPO: Alup = Atup (same nga tao)
+    n = n.replace(/\balup\b/g, 'atup');
+    return n;
+  };
+
+  // LIST SA AUTHORS - GI-GROUP NA, WALAY DUPLICATE
+  const authorList = useMemo(() => {
+    const map = new Map<string, { display: string; count: number }>();
+    legislations.forEach(l => {
+      const raw = (l.author || '').trim();
+      if (!raw) return;
+      const key = normalizeAuthor(raw);
+      if (!key) return;
+      // Ang display kay ang pinaka-kompleto / pinaka-taas nga version
+      // Pananglitan: "Hon. Daniel R. Delima, II" ang ipakita, dili ang "Hon. Daniel R. Delima" lang
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, { display: raw, count: 1 });
+      } else {
+        existing.count += 1;
+        if (raw.length > existing.display.length) existing.display = raw;
+      }
+    });
+    return Array.from(map.values())
+      .sort((a, b) => a.display.localeCompare(b.display))
+      .map(v => v.display);
+  }, [legislations]);
+
+  const yearList = useMemo(() => {
+    const set = new Set<string>();
+    legislations.forEach(l => { const y = getYear(l); if (y) set.add(y); });
+    return Array.from(set).sort((a, b) => Number(b) - Number(a));
+  }, [legislations]);
+
   const filtered = legislations.filter(item => {
     const m = (item.title || '').toLowerCase().includes(searchTerm.toLowerCase()) || (item.ordinance_no || '').toLowerCase().includes(searchTerm.toLowerCase());
-    return m && (filterType === 'All' || item.legislation_type === filterType || item.type === filterType);
+    const typeOk = filterType === 'All' || item.legislation_type === filterType || item.type === filterType;
+    // FIX: Compare gamit ang normalized author, para maapil tanan variation
+    const authorOk = filterAuthor === 'All' || normalizeAuthor(item.author || '') === normalizeAuthor(filterAuthor);
+    const yearOk = filterYear === 'All' || getYear(item) === filterYear;
+    return m && typeOk && authorOk && yearOk;
   });
+
+  // PAGINATION LOGIC
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedLegislations = filtered.slice(startIndex, startIndex + itemsPerPage);
+
+  // Para dili ma-stuck sa Page 3 kung mag-search ka - balik sa Page 1
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  };
+  const handleFilterChange = (value: string) => {
+    setFilterType(value);
+    setCurrentPage(1);
+  };
+  const handleAuthorChange = (value: string) => {
+    setFilterAuthor(value);
+    setCurrentPage(1);
+  };
+  const handleYearChange = (value: string) => {
+    setFilterYear(value);
+    setCurrentPage(1);
+  };
+  const handleClearNarrowFilter = () => {
+    setFilterAuthor('All');
+    setFilterYear('All');
+    setCurrentPage(1);
+  };
+  const hasNarrowFilter = filterAuthor !== 'All' || filterYear !== 'All';
 
   const handleViewPdf = (item: any) => {
     const pdfUrl = item.pdf_url || item.file_url || item.document_url;
@@ -75,9 +166,6 @@ export default function Ordinances() {
     else alert('Error: ' + error.message);
   };
 
-  const cleanTitle = (title: string) => { if (!title) return ''; return title.replace(/^[\s\-–—•\u00A0]+/, '').replace(/\s+/g, ' ').trim(); };
-  const getYear = (item: any) => item?.year_series || (item?.date_approved ? new Date(item.date_approved).getFullYear().toString() : '');
-
   return (
     <div className="min-h-screen bg-transparent py-6 overflow-visible">
       <div className="max-w-[95%] mx-auto px-2 md:px-4">
@@ -86,24 +174,81 @@ export default function Ordinances() {
   <p className="text-slate-600 mt-2">Search and download municipal legislative documents.</p>
         </div>
 
-        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border p-3 mb-5 max-w-5xl mx-auto flex flex-col md:flex-row gap-2">
-          <div className="flex-1 flex items-center gap-2 bg-slate-50 border rounded-lg px-3">
-            <Search className="w-4 h-4 text-slate-400" />
-            <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search ordinance, resolution..." className="flex-1 bg-transparent py-2 outline-none text-sm" />
+        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border p-3 mb-5 max-w-5xl mx-auto">
+          <div className="flex flex-col md:flex-row gap-2">
+            <div className="flex-1 flex items-center gap-2 bg-slate-50 border rounded-lg px-3">
+              <Search className="w-4 h-4 text-slate-400" />
+              <input value={searchTerm} onChange={e => handleSearchChange(e.target.value)} placeholder="Search ordinance, resolution..." className="flex-1 bg-transparent py-2 outline-none text-sm" />
+            </div>
+            <div className="flex items-center gap-2">
+              <Filter className="w-3.5 h-3.5 text-slate-500" />
+              <select value={filterType} onChange={e => handleFilterChange(e.target.value)} className="border rounded-lg px-3 py-2 text-xs bg-white">
+                <option value="All">All Types</option>
+                <option value="Ordinance">Ordinance</option>
+                <option value="Resolution">Resolution</option>
+              </select>
+              {/* NARROW FILTER BUTTON */}
+              <button
+                onClick={() => setShowNarrowFilter(v => !v)}
+                className={`flex items-center gap-1.5 border rounded-lg px-3 py-2 text-xs font-bold transition-colors ${showNarrowFilter || hasNarrowFilter ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-700 hover:bg-slate-50'}`}
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                Narrow Filter
+                {hasNarrowFilter && <span className="w-2 h-2 rounded-full bg-yellow-400" />}
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showNarrowFilter ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Filter className="w-3.5 h-3.5 text-slate-500" />
-            <select value={filterType} onChange={e => setFilterType(e.target.value)} className="border rounded-lg px-3 py-2 text-xs bg-white">
-              <option value="All">All Types</option>
-              <option value="Ordinance">Ordinance</option>
-              <option value="Resolution">Resolution</option>
-            </select>
-          </div>
+
+          {/* NARROW FILTER PANEL */}
+          {showNarrowFilter && (
+            <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">Filter by Author</label>
+                <select value={filterAuthor} onChange={e => handleAuthorChange(e.target.value)} className="w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-slate-900">
+                  <option value="All">All Authors</option>
+                  {authorList.map(a => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">Filter by Year Series</label>
+                <select value={filterYear} onChange={e => handleYearChange(e.target.value)} className="w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-slate-900">
+                  <option value="All">All Years</option>
+                  {yearList.map(y => (
+                    <option key={y} value={y}>Series of {y}</option>
+                  ))}
+                </select>
+              </div>
+              {hasNarrowFilter && (
+                <div className="md:col-span-2 flex items-center justify-between bg-slate-50 border rounded-lg px-3 py-2">
+                  <p className="text-xs text-slate-600">
+                    Active filter: {filterAuthor !== 'All' ? <span className="font-bold text-slate-900">{filterAuthor}</span> : ''}
+                    {filterAuthor !== 'All' && filterYear !== 'All' ? ' • ' : ''}
+                    {filterYear !== 'All' ? <span className="font-bold text-slate-900">Series of {filterYear}</span> : ''}
+                  </p>
+                  <button onClick={handleClearNarrowFilter} className="flex items-center gap-1 text-xs font-bold text-red-600 hover:text-red-700">
+                    <X className="w-3.5 h-3.5" /> Clear Filter
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="max-w-5xl mx-auto space-y-4 overflow-visible">
           {loading ? <div className="text-center py-12"><div className="animate-spin w-6 h-6 border-4 border-slate-900 border-t-transparent rounded-full mx-auto"></div></div> :
-            filtered.map((item) => (
+            paginatedLegislations.length === 0 ? (
+              <div className="text-center py-12 bg-white/90 border rounded-xl">
+                <p className="text-sm font-bold text-slate-900">No legislations found.</p>
+                <p className="text-xs text-slate-500 mt-1">Try adjusting your search or clearing the filter.</p>
+                {hasNarrowFilter && (
+                  <button onClick={handleClearNarrowFilter} className="mt-4 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-full">Clear Narrow Filter</button>
+                )}
+              </div>
+            ) :
+            paginatedLegislations.map((item) => (
               <div key={item.id} className="group !transform-gpu bg-white/90 backdrop-blur-sm border border-slate-200 rounded-xl p-4 shadow-sm transition-all duration-300 ease-out will-change-transform hover:!scale-[1.02] hover:!-translate-y-1 hover:shadow-[0_20px_40px_rgba(0,0,0,0.15)] hover:border-slate-900/20 cursor-pointer overflow-visible">
                 <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-3">
                   <div className="flex-1 min-w-0 order-2 md:order-1">
@@ -130,10 +275,42 @@ export default function Ordinances() {
             ))}
         </div>
 
-        <div className="mt-6 flex flex-col items-center gap-1.5 max-w-5xl mx-auto">
+        <div className="mt-6 flex flex-col items-center gap-3 max-w-5xl mx-auto">
           <div className="text-center text-xs text-slate-500 bg-white/80 backdrop-blur-sm border rounded-full px-3 py-1 shadow-sm">
-            Showing <span className="font-bold text-slate-900">{filtered.length}</span> of <span className="font-bold">{legislations.length}</span> legislations
+            Showing <span className="font-bold text-slate-900">{filtered.length === 0 ? 0 : startIndex + 1} - {Math.min(startIndex + itemsPerPage, filtered.length)}</span> of <span className="font-bold">{legislations.length}</span> legislations
           </div>
+
+          {/* PAGINATION - BY 10 PER PAGE */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              <button
+                onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                disabled={currentPage === 1}
+                className="px-4 py-2 border rounded-lg bg-white text-sm font-bold disabled:opacity-40 hover:bg-slate-50"
+              >
+                Previous
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <button
+                  key={page}
+                  onClick={() => { setCurrentPage(page); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  className={`w-9 h-9 rounded-lg text-sm font-bold ${currentPage === page ? 'bg-slate-900 text-white' : 'bg-white border hover:bg-slate-50'}`}
+                >
+                  {page}
+                </button>
+              ))}
+
+              <button
+                onClick={() => { setCurrentPage(p => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 border rounded-lg bg-white text-sm font-bold disabled:opacity-40 hover:bg-slate-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
+
           <div className="text-xs text-slate-400 text-center">© Sangguniang Bayan of Ubay - Legislative Portal</div>
         </div>
       </div>
