@@ -29,7 +29,9 @@
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "multer": "^2.4.0",
+    "onnxruntime-web": "^1.31.1",
     "pdfjs-dist": "^6.5.438",
+    "ppu-paddle-ocr": "^6.7.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-is": "^19.3.1",
@@ -61,5 +63,9 @@
     "typescript": "~5.8.2",
     "typescript-eslint": "^8.57.1",
     "vite": "^6.2.0"
+  },
+  "allowScripts": {
+    "onnxruntime-web@1.31.1": true,
+    "ppu-paddle-ocr@6.7.1": true
   }
 }

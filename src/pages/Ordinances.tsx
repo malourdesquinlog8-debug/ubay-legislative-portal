@@ -168,6 +168,14 @@ export default function Ordinances() {
 
   return (
     <div className="min-h-screen bg-transparent py-6 overflow-visible">
+            {/* MOBILE: DISABLE HOVER - PARA DILI MAG-LAG ANG SCROLL */}
+      <style>{`
+        @media (hover: none) {
+          .group:hover { transform: none !important; box-shadow: none !important; translate: none !important; }
+          button:hover { transform: none !important; box-shadow: none !important; }
+          * { -webkit-tap-highlight-color: transparent; }
+        }
+      `}</style>
       <div className="max-w-[95%] mx-auto px-2 md:px-4">
         <div className="mb-6 max-w-5xl mx-auto">
           <h1 className="text-3xl md:text-4xl font-serif font-bold text-slate-900">Ordinances & Resolutions</h1>
