@@ -30,6 +30,12 @@ const fixOcrText = (s: string): string => {
   ];
   for (const [pat, rep] of fixes) out = out.replace(pat, rep);
   out = out.replace(/[#@£€¥§¶~^`_{}\[\]\\|<>]{2,}/g, ' ').replace(/\s+/g, ' ').trim();
+  // Fix Paddle mixed-case garbage: suBiECT -> SUBJECT, cOMPLiANCE -> COMPLIANCE
+  out = out.split(' ').map(w => {
+    const clean = w.replace(/[^A-Za-z]/g, '');
+    if (clean.length > 3 && /[a-z][A-Z]/.test(clean) && /[A-Z]/.test(clean)) return w.toUpperCase();
+    return w;
+  }).join(' ');
   return out;
 };
 
@@ -129,12 +135,12 @@ export default function LegislativeManagement() {
     let yearSeries = yearMatch ? yearMatch[1] : new Date().getFullYear().toString();
     const cleanText = fixOcrText(text.replace(/\s+/g, ' ').trim());
     const titlePatterns = [
-      /(?:A RESOLUTION|AN ORDINANCE)[\s\S]{0,5}?(.*?)(?:\s+Sponsored by|\s+SPONSORED BY|\s+WHEREAS|\s+Whereas|\s+BE IT RESOLVED|\s+BE IT ORDAINED|$)/i,
-      /(?:RESOLUTION NO\.?\s*\d+[^\n]*\n)(.*?)(?:\s+Sponsored by|\s+WHEREAS|$)/i,
+      /((?:A RESOLUTION|AN ORDINANCE)[\s\S]{0,5}?.*?)(?:\s*\(?\s*(?:Sponsored by|Authored by|Author:|Sponsored:|Submitted by|Introduced by|Presented by|Proposed by)|\\s+SPONSORED BY|\\s+AUTHORED BY|\\s+WHEREAS|\\s+Whereas|\\s+BE IT RESOLVED|\\s+BE IT ORDAINED|$)/i,
+      /(?:RESOLUTION NO\.?\s*\d+[^\n]*\n)(.*?)(?:\s*\(?\s*Sponsored by|\s+WHEREAS|$)/i,
     ];
     for (const pat of titlePatterns) {
       const m = cleanText.match(pat);
-      if (m && m[1] && m[1].trim().length > 10) { title = fixOcrText(m[1].trim().replace(/^\W+/, '').substring(0, 500)); break; }
+      if (m && m[1] && m[1].trim().length > 10) { let t = m[1].trim().replace(/\s*\(?\s*(?:Sponsored by|Authored by|Author:|Sponsored:|Submitted by|Introduced by|Presented by|Proposed by).*$/i, '').replace(/\s*\(Author.*$/i, '').replace(/['"]\s*$/,'').trim(); if (!/^(A RESOLUTION|AN ORDINANCE)/i.test(t)) { const pref = /RESOLUTION/i.test(cleanText.slice(0,500)) ? 'A RESOLUTION ' : 'AN ORDINANCE '; t = pref + t; } title = fixOcrText(t.substring(0, 800)); break; }
     }
     if (!title) {
       const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 20);
@@ -153,8 +159,8 @@ export default function LegislativeManagement() {
       const groqKey = import.meta.env.VITE_GROQ_API_KEY;
       if (!groqKey) throw new Error('No Groq key');
       const cleanedText = fixOcrText(extractedText);
-      const prompt = `You are an assistant for the Ubay Legislative Portal. Extract the information from the document text below and return ONLY JSON, no other text.\n\nText:\n${cleanedText.substring(0, 8000)}\n\nFilename: ${filename}\n\nReturn this JSON format:\n{\n  "ordinance_no": "395",\n  "title": "complete title of the resolution / ordinance",\n  "description": "1-2 sentence summary in English",\n  "author": "name of the sponsor / author",\n  "date_approved": "YYYY-MM-DD",\n  "type": "Resolution or Ordinance",\n  "classification": "General Ordinance / Revenue / Tax Ordinance / Appropriation Ordinance / Regulatory Ordinance / Franchise Ordinance - empty if Resolution",\n  "year_series": "2026"\n}\n\nSTRICT RULES:\n- title: Copy WORD-FOR-WORD from the document! DO NOT paraphrase!\n- description: Summarize with correct grammar, spelling, verb tense, and punctuation.\n- author: Full name, including middle initial.\n- ordinance_no from filename or text, numbers only\n- classification: only if type is Ordinance, pick from General / Revenue / Tax / Appropriation / Regulatory / Franchise based on content, else return \"\"\n- If not found, return ""\n- Do not invent numbers or names`;
-      const MODELS = ['openai/gpt-oss-120b','openai/gpt-oss-20b','meta-llama/llama-4-scout-17b-16e-instruct','meta-llama/llama-4-maverick-17b-128e-instruct','qwen/qwen3-32b'];
+      const prompt = `You are an assistant for the Ubay Legislative Portal. Extract the information from the document text below and return ONLY JSON, no other text.\n\nText:\n${cleanedText.substring(0, 8000)}\n\nFilename: ${filename}\n\nReturn this JSON format:\n{\n  "ordinance_no": "395",\n  "title": "complete title, copy EXACTLY from document",\n  "description": "1-2 sentence summary in English",\n  "author": "name of the sponsor / author",\n  "date_approved": "YYYY-MM-DD",\n  "type": "Resolution or Ordinance",\n  "classification": "One of: Sports Development, Education and Culture, Business Establishments, Peace and Order, Public Officials, Social Services, Public Properties, Market and Slaughterhouses, Traffic and Transportation, Agriculture/Fisheries, Health and Sanitation, Tourism, Barangay Affairs, Appropriation/Budget, Environment, Building Regulations, Amusements/Games/Recreation, Public Utilities, Revenue / Taxation / Fees, Parks and Playgrounds, Public Morals, Governance / Administrative, Trade, Sports, Labor / Personnel - empty if Resolution",\n  "year_series": "2026"\n}\n\nSTRICT RULES:\n- title: Copy EXACTLY as in document, keep EXACT word order! DO NOT summarize! DO NOT shorten! If document title is long, copy ALL of it! Fix ONLY spelling/caps (suBiECT -> SUBJECT). NEVER include author/sponsor in title! STOP title BEFORE any of: (Sponsored by, (Authored by, Authored by, Sponsored by, Author:, Sponsored: - cut them ALL off!\n- description: Summarize with correct grammar, spelling, verb tense, and punctuation.\n- author: Full name, including middle initial.\n- ordinance_no from filename or text, numbers only\n- classification: only if type is Ordinance, pick from General / Revenue / Tax / Appropriation / Regulatory / Franchise based on content, else return \"\"\n- If not found, return ""\n- Do not invent numbers or names`;
+      const MODELS = ['meta-llama/llama-4-maverick-17b-128e-instruct','meta-llama/llama-4-scout-17b-16e-instruct','openai/gpt-oss-120b','qwen/qwen3-32b'];
       let parsed: any = null; let lastError = '';
       for (const model of MODELS) {
         try {
@@ -169,7 +175,7 @@ export default function LegislativeManagement() {
       }
       if (!parsed) throw new Error('All Groq models failed: ' + lastError);
       parsed.title = fixOcrText(parsed.title || ''); parsed.description = fixOcrText(parsed.description || ''); parsed.author = fixOcrText(parsed.author || '');
-      setFormData(prev => ({ ...prev, ordinance_no: parsed.ordinance_no || prev.ordinance_no, title: parsed.title || prev.title, description: parsed.description || prev.description, author: parsed.author || prev.author, date_approved: parsed.date_approved || prev.date_approved, type: parsed.type || prev.type, legislation_type: parsed.type || prev.legislation_type, classification: parsed.classification || prev.classification, year_series: parsed.year_series || prev.year_series, full_text: extractedText.substring(0, 50000) }));
+      setFormData(prev => ({ ...prev, ordinance_no: parsed.ordinance_no || prev.ordinance_no, title: prev.title || (parsed.title ? parsed.title.replace(/\s*\(?\s*(?:Sponsored by|Authored by|Author:|Sponsored:|Submitted by|Introduced by|Presented by).*$/i, '').trim() : parsed.title), description: parsed.description || prev.description, author: parsed.author || prev.author, date_approved: parsed.date_approved || prev.date_approved, type: parsed.type || prev.type, legislation_type: parsed.type || prev.legislation_type, classification: parsed.classification || prev.classification, year_series: parsed.year_series || prev.year_series, full_text: extractedText.substring(0, 50000) }));
       setAiStatus('Autofill completed successfully!');
     } catch (err) {
       setAiStatus('Automatic extraction failed - Parsed manually');
@@ -214,16 +220,36 @@ export default function LegislativeManagement() {
       extractedText = fixOcrText(extractedText);
       if (isOrdinance) {
         const up = extractedText.toUpperCase();
-        let autoClass = 'General Ordinance';
-        if (/REVENUE|TAX|FEE|CHARGE/.test(up)) autoClass = 'Revenue / Tax Ordinance';
-        else if (/APPROPRIATION|BUDGET|FUND/.test(up)) autoClass = 'Appropriation Ordinance';
-        else if (/FRANCHISE/.test(up)) autoClass = 'Franchise Ordinance';
-        else if (/REGULAT|PROHIBIT|PENALTY/.test(up)) autoClass = 'Regulatory Ordinance';
+        let autoClass = 'Governance / Administrative';
+        if (/REVENUE|TAX|FEE|CHARGE/.test(up)) autoClass = 'Revenue / Taxation / Fees';
+        else if (/APPROPRIATION|BUDGET|FUND/.test(up)) autoClass = 'Appropriation/Budget';
+        else if (/SPORTS DEVELOPMENT|ATHLETE|CASH INCENTIVE/.test(up)) autoClass = 'Sports Development';
+        else if (/EDUCATION|CULTURE|SCHOOL|CHED/.test(up)) autoClass = 'Education and Culture';
+        else if (/BUSINESS|ESTABLISHMENT/.test(up)) autoClass = 'Business Establishments';
+        else if (/PEACE|ORDER|CCTV|SURVEILLANCE|POLICE/.test(up)) autoClass = 'Peace and Order';
+        else if (/PUBLIC OFFICIAL|SANGGUNIANG|COUNCILOR/.test(up)) autoClass = 'Public Officials';
+        else if (/SOCIAL|WELFARE|PWD|SENIOR/.test(up)) autoClass = 'Social Services';
+        else if (/PUBLIC PROPERT|BUILDING/.test(up)) autoClass = 'Public Properties';
+        else if (/MARKET|SLAUGHTER/.test(up)) autoClass = 'Market and Slaughterhouses';
+        else if (/TRAFFIC|TRANSPORT|TRICYCLE|ROAD/.test(up)) autoClass = 'Traffic and Transportation';
+        else if (/AGRICULTURE|FISHERIES|FARM|FISH/.test(up)) autoClass = 'Agriculture/Fisheries';
+        else if (/HEALTH|SANITATION|CLINIC/.test(up)) autoClass = 'Health and Sanitation';
+        else if (/TOURISM|TOURIST/.test(up)) autoClass = 'Tourism';
+        else if (/BARANGAY/.test(up)) autoClass = 'Barangay Affairs';
+        else if (/ENVIRONMENT|WASTE|GARBAGE/.test(up)) autoClass = 'Environment';
+        else if (/BUILDING REGULAT|CONSTRUCTION|PERMIT/.test(up)) autoClass = 'Building Regulations';
+        else if (/AMUSEMENT|GAME|RECREATION|COCKPIT/.test(up)) autoClass = 'Amusements/Games/Recreation';
+        else if (/PUBLIC UTILIT|WATER|ELECTRIC/.test(up)) autoClass = 'Public Utilities';
+        else if (/PARK|PLAYGROUND/.test(up)) autoClass = 'Parks and Playgrounds';
+        else if (/MORAL|DECENCY/.test(up)) autoClass = 'Public Morals';
+        else if (/TRADE|COMMERCE/.test(up)) autoClass = 'Trade';
+        else if (/SPORTS/.test(up)) autoClass = 'Sports';
+        else if (/LABOR|PERSONNEL|EMPLOYEE/.test(up)) autoClass = 'Labor / Personnel';
         setFormData(prev => ({ ...prev, classification: prev.classification || autoClass }));
       }
       const manual = parseFromText(extractedText, file.name);
-      if (manual.ordinanceNo) setFormData(prev => ({ ...prev, ordinance_no: manual.ordinanceNo, year_series: manual.yearSeries }));
-      if (extractedText.trim().length > 50) await autofillWithGroq(extractedText, file.name);
+      if (manual.ordinanceNo || manual.title) setFormData(prev => ({ ...prev, ordinance_no: manual.ordinanceNo || prev.ordinance_no, year_series: manual.yearSeries || prev.year_series, title: manual.title ? manual.title.replace(/\s*\(?\s*(?:Sponsored by|Authored by|Author:|Sponsored:|Submitted by|Introduced by|Presented by).*$/i, '').trim() : prev.title, author: manual.author || prev.author, date_approved: manual.dateApproved || prev.date_approved }));
+      if (extractedText.trim().length > 50) { await autofillWithGroq(extractedText, file.name); setFormData(prev => { if (prev.type === 'Ordinance' && !prev.classification) { const up2 = extractedText.toUpperCase(); let c = 'Governance / Administrative'; if (/REVENUE|TAX|FEE|CHARGE/.test(up2)) c = 'Revenue / Taxation / Fees'; else if (/APPROPRIATION|BUDGET|FUND/.test(up2)) c = 'Appropriation/Budget'; else if (/SPORTS DEVELOPMENT|ATHLETE/.test(up2)) c = 'Sports Development'; else if (/EDUCATION|CULTURE|SCHOOL/.test(up2)) c = 'Education and Culture'; else if (/PEACE|ORDER|CCTV|SURVEILLANCE/.test(up2)) c = 'Peace and Order'; else if (/HEALTH|SANITATION/.test(up2)) c = 'Health and Sanitation'; else if (/TRAFFIC|TRANSPORT/.test(up2)) c = 'Traffic and Transportation'; else if (/AGRICULTURE|FISHERIES/.test(up2)) c = 'Agriculture/Fisheries'; else if (/ENVIRONMENT/.test(up2)) c = 'Environment'; else if (/TOURISM/.test(up2)) c = 'Tourism'; else if (/BARANGAY/.test(up2)) c = 'Barangay Affairs'; return { ...prev, classification: c }; } return prev; }); }
       else { setAiStatus('No readable text found even after OCR - Please fill in manually, pero pwede gihapon mo-Save!'); setAiLoading(false); }
     } catch (err) {
       setAiStatus('Extraction failed - Please fill in manually, pero pwede gihapon mo-Save!');
@@ -312,6 +338,7 @@ export default function LegislativeManagement() {
                 <th className="p-3 text-left">Title</th>
                 <th className="p-3 text-left w-">Author</th>
                 <th className="p-3 text-left w-">Year</th>
+                <th className="p-3 text-left w-">Classification</th>
                 <th className="p-3 text-left w-">Date</th>
                 <th className="p-3 text-left w-">Actions</th>
               </tr></thead>
@@ -322,6 +349,7 @@ export default function LegislativeManagement() {
                     <td className="p-3 leading-snug">{leg.title}</td>
                     <td className="p-3 leading-snug">{leg.author}</td>
                     <td className="p-3 whitespace-nowrap">{leg.year_series}</td>
+                    <td className="p-3 leading-snug">{leg.classification || "-"}</td>
                     <td className="p-3 whitespace-nowrap">{leg.date_approved}</td>
                     <td className="p-3"><div className="flex gap-2">
                       {leg.pdf_url && <a href={leg.pdf_url} target="_blank" rel="noreferrer" className="text-blue-600"><Eye size={18} /></a>}
@@ -341,7 +369,8 @@ export default function LegislativeManagement() {
                   <span className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded shrink-0">{leg.year_series} • {leg.date_approved}</span>
                 </div>
                 <p className="text-sm leading-snug font-medium text-gray-900 mb-2">{leg.title}</p>
-                <p className="text-xs text-gray-600 mb-3">Author: {leg.author}</p>
+                <p className="text-xs text-gray-600 mb-1">Author: {leg.author}</p>
+                <p className="text-xs text-gray-600 mb-3">Classification: {leg.classification || "-"}</p>
                 <div className="flex gap-4 pt-2 border-t">
                   {leg.pdf_url && <a href={leg.pdf_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-blue-600 text-sm"><Eye size={16} /> View</a>}
                   <button onClick={() => handleEdit(leg)} className="flex items-center gap-1 text-green-600 text-sm"><Edit size={16} /> Edit</button>
@@ -395,11 +424,31 @@ export default function LegislativeManagement() {
               <div><label className="block text-sm font-medium">Classification (Ordinance Only)</label>
                 <select value={formData.classification} disabled={formData.type !== 'Ordinance'} onChange={e => setFormData({ ...formData, classification: e.target.value })} className="w-full border rounded-lg px-3 py-2.5 disabled:bg-gray-100 disabled:text-gray-400">
                   <option value="">Select Classification</option>
-                  <option>General Ordinance</option>
-                  <option>Revenue / Tax Ordinance</option>
-                  <option>Appropriation Ordinance</option>
-                  <option>Regulatory Ordinance</option>
-                  <option>Franchise Ordinance</option>
+                  <option>Sports Development</option>
+                  <option>Education and Culture</option>
+                  <option>Business Establishments</option>
+                  <option>Peace and Order</option>
+                  <option>Public Officials</option>
+                  <option>Social Services</option>
+                  <option>Public Properties</option>
+                  <option>Market and Slaughterhouses</option>
+                  <option>Traffic and Transportation</option>
+                  <option>Agriculture/Fisheries</option>
+                  <option>Health and Sanitation</option>
+                  <option>Tourism</option>
+                  <option>Barangay Affairs</option>
+                  <option>Appropriation/Budget</option>
+                  <option>Environment</option>
+                  <option>Building Regulations</option>
+                  <option>Amusements/Games/Recreation</option>
+                  <option>Public Utilities</option>
+                  <option>Revenue / Taxation / Fees</option>
+                  <option>Parks and Playgrounds</option>
+                  <option>Public Morals</option>
+                  <option>Governance / Administrative</option>
+                  <option>Trade</option>
+                  <option>Sports</option>
+                  <option>Labor / Personnel</option>
                 </select>
                 {formData.type !== 'Ordinance' && <p className="text-xs text-gray-400 mt-1">Disabled — for Ordinance only</p>}
               </div>
