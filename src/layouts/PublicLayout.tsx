@@ -14,7 +14,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
     { name: 'Home', path: '/' },
     { name: 'Legislation', path: '/ordinances' },
     { name: 'News & Events', path: '/news' },
-    { name: 'Sessions & Live', path: '/sessions' },
+    { name: 'Session Calendar', path: '/sessions' },
     { name: 'SB Members', path: '/members' },
     { name: 'Contact', path: '/contact' },
   ];

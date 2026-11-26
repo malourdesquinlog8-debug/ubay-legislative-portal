@@ -29,6 +29,7 @@ import ActivityLogs from './pages/admin/ActivityLogs';
 import NewsManagement from './pages/admin/NewsManagement';
 import MemberManagement from './pages/admin/MemberManagement';
 import MessageManagement from './pages/admin/MessageManagement';
+import AdminSessions from './pages/admin/AdminSessions';
 
 export default function App() {
   return (
@@ -60,6 +61,7 @@ export default function App() {
               <Route path="users" element={<Users />} />
               <Route path="logs" element={<ActivityLogs />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="sessions" element={<AdminSessions />} />
             </Route>
           </Routes>
         </Router>
@@ -67,4 +69,3 @@ export default function App() {
     </AuthProvider>
   );
 }
-

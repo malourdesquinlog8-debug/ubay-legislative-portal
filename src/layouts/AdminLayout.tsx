@@ -11,7 +11,8 @@ import {
   LogOut,
   Menu,
   X,
-  AlertTriangle
+  AlertTriangle,
+  Calendar
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -56,6 +57,7 @@ export default function AdminLayout() {
     { name: 'Legislative Management', path: '/admin/legislations', icon: FileText },
     { name: 'SB Members', path: '/admin/members', icon: Users },
     { name: 'News & Events', path: '/admin/news', icon: Newspaper },
+    { name: 'Session Calendar', path: '/admin/sessions', icon: Calendar },
     { name: 'Contact Messages', path: '/admin/messages', icon: MessageSquare },
     { name: 'Public Comments', path: '/admin/comments', icon: MessageSquare },
     { name: 'User Management', path: '/admin/users', icon: Users },

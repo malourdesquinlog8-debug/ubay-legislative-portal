@@ -344,12 +344,14 @@ export default function Ordinances() {
 
           <div className="flex-1 overflow-auto bg-[#0f172a] flex justify-center items-start p-0 md:p-4" onContextMenu={(e) => e.preventDefault()}>
             <div className="bg-white shadow-2xl w-full md:w- md:rounded-sm flex-shrink-0 origin-top transition-transform duration-200 relative" style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center', minHeight: '85vh' }} onContextMenu={e => e.preventDefault()}>
+              {/* FIX V2: Balik gview kay ang sandbox + direct PDF gi-block sa Chrome. Overlay nag-tabon sa tibuok top bar sa gview diin naa ang arrow. */}
               <iframe 
                 src={`https://docs.google.com/gview?url=${encodeURIComponent(selectedPdf)}&embedded=true`}
                 className="w-full border-0 block md:rounded-sm" 
                 style={{ height: '85vh', minHeight: '600px' }} 
                 title="Protected PDF Viewer"
               />
+              <div className="absolute top-0 left-0 right-0 h-[64px] bg-[#0f172a] z-20 pointer-events-auto" onContextMenu={(e) => e.preventDefault()} />
               <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-[0.04] rotate-[-30deg]">
                 <span className="text-4xl md:text-6xl font-bold whitespace-nowrap">SB UBAY - PROTECTED</span>
               </div>

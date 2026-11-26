@@ -1,50 +1,39 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
-const s3 = new S3Client({
-  region: "auto",
-  endpoint: import.meta.env.VITE_R2_ENDPOINT,
-  credentials: {
-    accessKeyId: import.meta.env.VITE_R2_ACCESS_KEY_ID,
-    secretAccessKey: import.meta.env.VITE_R2_SECRET_ACCESS_KEY,
-  },
-});
-export async function uploadToR2(file: File, folder: string = "ordinances") {
-  const safeName = file.name.replace(/\s+/g, "-");
-  const key = folder + "/" + Date.now() + "-" + safeName;
-  const arrayBuffer = await file.arrayBuffer();
-  await s3.send(new PutObjectCommand({
-    Bucket: import.meta.env.VITE_R2_BUCKET,
-    Key: key,
-    Body: new Uint8Array(arrayBuffer),
-    ContentType: file.type,
-  }));
-  return import.meta.env.VITE_R2_PUBLIC_URL + "/" + key;
-}
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
-// --- DELETE FROM R2 - ROBUST VERSION ---
-export async function deleteFromR2(fileUrl: string) {
-  if (!fileUrl) return;
-  try {
-    const bucket = import.meta.env.VITE_R2_BUCKET;
-    let key = "";
-    const marker = "ordinances/";
-    const idx = fileUrl.indexOf(marker);
-    if (idx !== -1) {
-      key = fileUrl.substring(idx);
-    } else {
-      const url = new URL(fileUrl);
-      key = url.pathname.startsWith("/") ? url.pathname.slice(1) : url.pathname;
-      if (key.startsWith(bucket + "/")) key = key.replace(bucket + "/", "");
-    }
-    key = key.split("?")[0];
-    try { key = decodeURIComponent(key); } catch {}
-    console.log("Trying to delete from R2, key:", key);
-    await s3.send(new DeleteObjectCommand({
-      Bucket: bucket,
-      Key: key,
-    }));
-    console.log("Deleted from R2:", key);
-  } catch (e: any) {
-    console.log("R2 delete failed:", e);
-    alert("R2 delete failed: " + e.message);
+// DIRECT R2 ONLY - walay Supabase fallback
+// Gigamit ang VITE_R2_* nga naa na sa Vercel:
+// VITE_R2_ACCESS_KEY_ID, VITE_R2_SECRET_ACCESS_KEY, VITE_R2_ENDPOINT, VITE_R2_BUCKET, VITE_R2_PUBLIC_URL
+
+const s3 = new S3Client({
+  region: 'auto',
+  endpoint: (import.meta as any).env?.VITE_R2_ENDPOINT,
+  credentials: {
+    accessKeyId: (import.meta as any).env?.VITE_R2_ACCESS_KEY_ID || '',
+    secretAccessKey: (import.meta as any).env?.VITE_R2_SECRET_ACCESS_KEY || '',
+  },
+  forcePathStyle: true,
+});
+
+export async function uploadToR2(file: File | Blob, fileNameOrFolder: string): Promise<string> {
+  const bucket = (import.meta as any).env?.VITE_R2_BUCKET;
+  const publicBase = ((import.meta as any).env?.VITE_R2_PUBLIC_URL || '').replace(/\/$/, '');
+  if (!bucket || !publicBase) throw new Error('R2 env missing: VITE_R2_BUCKET / VITE_R2_PUBLIC_URL');
+
+  // Support 2 calls: uploadToR2(file, "ordinances/xxx.pdf") OR uploadToR2(file, "ordinances")
+  let key = fileNameOrFolder;
+  if (!key.includes('.') || (!key.includes('/') && !key.includes('.'))) {
+    // folder only -> himo og filename
+    const name = (file as File).name || `file-${Date.now()}.pdf`;
+    key = `${fileNameOrFolder.replace(/\/$/, '')}/${Date.now()}-${name}`;
   }
+
+  const body = file instanceof Blob ? await file.arrayBuffer() : file;
+  await s3.send(new PutObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    Body: body as any,
+    ContentType: (file as File).type || 'application/pdf',
+  }));
+
+  return `${publicBase}/${key}`;
 }

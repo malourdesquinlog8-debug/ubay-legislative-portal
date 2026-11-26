@@ -1,346 +1,139 @@
-import { useState, useEffect } from 'react';
-import { Video, Calendar, MessageSquare, Send, ThumbsUp, Share2, Download, User, Shield } from 'lucide-react';
-import { format } from 'date-fns';
+import { useState, useEffect, useMemo } from 'react';
+import { Calendar as CalendarIcon, MapPin, Clock } from 'lucide-react';
 
-export default function LiveSession() {
+// English version - same layout as screenshot, same /api/sessions source as Admin
+const TYPE_COLORS: Record<string, string> = {
+  'Regular Session': 'bg-blue-100 text-blue-800',
+  'Committee Hearing': 'bg-amber-100 text-amber-800',
+  'Meeting': 'bg-emerald-100 text-emerald-800',
+  'Special Session': 'bg-purple-100 text-purple-800',
+  'Public Hearing': 'bg-rose-100 text-rose-800',
+};
+const DOT_COLORS: Record<string, string> = {
+  'Regular Session': 'bg-blue-600',
+  'Committee Hearing': 'bg-amber-600',
+  'Meeting': 'bg-emerald-600',
+  'Special Session': 'bg-purple-600',
+  'Public Hearing': 'bg-rose-600',
+};
+
+function parseDate(d: any): Date | null {
+  if (!d) return null;
+  const s = String(d).trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) {
+    const tm = s.match(/T(\d{2}):(\d{2})/);
+    if (tm) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(tm[1]), Number(tm[2]));
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 9, 0);
+  }
+  const date = new Date(s);
+  return isNaN(date.getTime()) ? null : date;
+}
+function keyOf(d: Date) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+
+export default function Sessions() {
   const [sessions, setSessions] = useState<any[]>([]);
-  const [activeSession, setActiveSession] = useState<any>(null);
-  const [comment, setComment] = useState('');
-  const [comments, setComments] = useState<any[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Mock User for comment submission
-  const [userForm, setUserForm] = useState({
-    name: '',
-    email: '',
-    barangay: ''
-  });
+  const [current, setCurrent] = useState(() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1); });
+  const [selected, setSelected] = useState<Date>(() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); });
 
   useEffect(() => {
-    // Fetch sessions
-    fetch('/api/sessions')
-      .then(res => res.json())
-      .then(data => {
-        setSessions(data);
-        if (data.length > 0) {
-          // Priority: 1. Live, 2. Scheduled (closest to now), 3. Most recent Ended
-          const live = data.find((s: any) => s.status === 'Live');
-          if (live) {
-            setActiveSession(live);
-          } else {
-            const scheduled = data
-              .filter((s: any) => s.status === 'Scheduled')
-              .sort((a: any, b: any) => new Date(a.session_date).getTime() - new Date(b.session_date).getTime());
-            
-            if (scheduled.length > 0) {
-              setActiveSession(scheduled[0]);
-            } else {
-              setActiveSession(data[0]); // Fallback to most recent
-            }
-          }
-        }
-      });
+    fetch('/api/sessions').then(r => r.json()).then(d => { if (Array.isArray(d)) setSessions(d); }).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    if (activeSession?.id) {
-      fetch(`/api/comments?session_id=${activeSession.id}`)
-        .then(res => res.json())
-        .then(data => setComments(data))
-        .catch(err => console.error('Failed to fetch comments:', err));
-    }
-  }, [activeSession?.id]);
+  const byDay = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    sessions.forEach((s) => { const d = parseDate(s.session_date); if (!d) return; const k = keyOf(d); (map[k] ||= []).push(s); });
+    return map;
+  }, [sessions]);
 
-  const getEmbedUrl = (url: string) => {
-    if (!url) return '';
-    if (url.includes('youtube.com/embed/')) return url;
-    
-    // Handle standard youtube links
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
+  const year = current.getFullYear(), month = current.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells: (Date | null)[] = [];
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
 
-    if (match && match[2].length === 11) {
-      return `https://www.youtube.com/embed/${match[2]}`;
-    }
-    
-    return url;
-  };
+  const today = new Date(); const todayKey = keyOf(today);
+  const selectedKey = keyOf(selected);
+  const selectedSessions = byDay[selectedKey] || [];
 
-  const handleCommentSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!comment || !userForm.name || !userForm.email || !userForm.barangay) {
-      alert('Please fill in all fields.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    
-    try {
-      const res = await fetch('/api/comments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          legislation_id: null,
-          session_id: activeSession?.id,
-          user_name: userForm.name,
-          barangay: userForm.barangay,
-          email: userForm.email,
-          content: comment
-        })
-      });
-      
-      if (res.ok) {
-        setComment('');
-        alert('Comment submitted for moderation!');
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const safeFormat = (dateStr: string, formatStr: string) => {
-    try {
-      if (!dateStr) return 'N/A';
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return 'N/A';
-      return format(date, formatStr);
-    } catch {
-      return 'N/A';
-    }
-  };
-
-  if (!activeSession) return <div className="p-12 text-center">Loading session data...</div>;
+  const prev = () => setCurrent(new Date(year, month - 1, 1));
+  const next = () => setCurrent(new Date(year, month + 1, 1));
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Main Video Area (2/3 width) */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Video Player */}
-          <div className="bg-black rounded-xl overflow-hidden shadow-2xl aspect-video relative">
-            {activeSession.video_url ? (
-              <iframe 
-                src={getEmbedUrl(activeSession.video_url)} 
-                className="w-full h-full" 
-                title="Session Stream"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                allowFullScreen
-              ></iframe>
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-white flex-col">
-                <Video className="w-16 h-16 mb-4 opacity-50" />
-                <p className="text-lg font-medium">Stream Offline</p>
-                <p className="text-sm text-slate-400">Next session starts: {safeFormat(activeSession.session_date, 'MMMM d, yyyy')}</p>
-              </div>
-            )}
-            
-            {/* Live Badge */}
-            {activeSession.status === 'Live' && (
-              <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 rounded text-xs font-bold uppercase tracking-wider animate-pulse flex items-center">
-                <span className="w-2 h-2 bg-white rounded-full mr-2"></span>
-                Live Now
-              </div>
-            )}
-          </div>
+    <div className="bg-[#fefce8] min-h-screen pb-16">
+      <div className="max-w-[1100px] mx-auto px-4 md:px-6 pt-8">
+        <div className="flex items-center gap-2">
+          <CalendarIcon className="w-7 h-7 text-yellow-500" />
+          <h1 className="text-3xl font-serif font-bold text-slate-900">Session Calendar</h1>
+        </div>
+        <p className="text-slate-500 mt-2">See when the Regular Session, Committee Hearing, Meeting, and Public Hearing of the Sangguniang Bayan are scheduled.</p>
 
-          {/* Session Info */}
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <div className="flex justify-between items-start">
-              <div>
-                <h1 className="text-2xl font-serif font-bold text-lgu-blue-900">{activeSession.title}</h1>
-                <div className="flex items-center text-slate-500 text-sm mt-2 space-x-4">
-                  <span className="flex items-center"><Calendar className="w-4 h-4 mr-1" /> {safeFormat(activeSession.session_date, 'MMMM d, yyyy • h:mm a')}</span>
-                  <span className="flex items-center"><Video className="w-4 h-4 mr-1" /> {activeSession.streaming_platform || 'YouTube'}</span>
-                </div>
-              </div>
-              <div className="flex space-x-2">
-                <button className="p-2 text-slate-500 hover:bg-slate-100 rounded-full"><Share2 className="w-5 h-5" /></button>
-                <button className="p-2 text-slate-500 hover:bg-slate-100 rounded-full"><ThumbsUp className="w-5 h-5" /></button>
-              </div>
-            </div>
-            
-            <div className="mt-6">
-              <h3 className="font-bold text-slate-900 mb-2">Session Agenda</h3>
-              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 text-sm text-slate-700 whitespace-pre-wrap">
-                {activeSession.description || 'No agenda provided for this session.'}
-              </div>
-              <div className="mt-4 flex space-x-3">
-                <button className="flex items-center text-sm text-lgu-blue-900 font-medium hover:underline">
-                  <Download className="w-4 h-4 mr-1" /> Download Agenda (PDF)
-                </button>
-                <button className="flex items-center text-sm text-lgu-blue-900 font-medium hover:underline">
-                  <Download className="w-4 h-4 mr-1" /> Committee Reports
-                </button>
-              </div>
-            </div>
-          </div>
+        <div className="flex flex-wrap gap-2 mt-5">
+          {Object.keys(TYPE_COLORS).map(t => (
+            <span key={t} className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${TYPE_COLORS[t]}`}>● {t}</span>
+          ))}
         </div>
 
-        {/* Sidebar: Chat / Comments (1/3 width) */}
-        <div className="lg:col-span-1 h-full flex flex-col">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-[600px]">
-            <div className="p-4 border-b border-slate-100 bg-slate-50 rounded-t-xl">
-              <h3 className="font-bold text-slate-800 flex items-center">
-                <MessageSquare className="w-4 h-4 mr-2 text-lgu-gold-500" />
-                Public Comments
-              </h3>
-              <p className="text-xs text-slate-500 mt-1">Comments are moderated. Be respectful.</p>
+        <div className="grid md:grid-cols-[1fr_340px] gap-6 mt-6 items-start">
+          {/* CALENDAR */}
+          <div className="bg-white border border-slate-300 rounded-lg p-4">
+            <div className="flex justify-between items-center mb-4">
+              <button onClick={prev} className="border border-slate-300 rounded-md px-3 py-1.5 text-sm font-bold hover:bg-slate-50">&lt; Prev</button>
+              <h2 className="text-lg font-serif font-bold">{current.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h2>
+              <button onClick={next} className="border border-slate-300 rounded-md px-3 py-1.5 text-sm font-bold hover:bg-slate-50">Next &gt;</button>
             </div>
-
-            {/* Comments List */}
-            <div className="flex-grow overflow-y-auto p-4 space-y-4">
-              {comments.length === 0 ? (
-                <div className="text-center text-slate-400 py-8 text-sm">
-                  No comments yet. Be the first to share your thoughts.
-                </div>
-              ) : (
-                comments.map((c) => (
-                  <div key={c.id} className="space-y-2">
-                    <div className="flex space-x-3">
-                      <div className="flex-shrink-0">
-                        <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center text-slate-500">
-                          <User className="w-4 h-4" />
-                        </div>
-                      </div>
-                      <div>
-                        <div className="flex items-baseline space-x-2">
-                          <span className="text-sm font-bold text-slate-900">{c.user_name}</span>
-                          <span className="text-xs text-slate-400">{safeFormat(c.created_at, 'MMM d, h:mm a')}</span>
-                        </div>
-                        <p className="text-sm text-slate-700 mt-1">{c.content}</p>
-                      </div>
+            <div className="grid grid-cols-7 text-center text-xs text-slate-400 font-medium mb-2">
+              {['SUN','MON','TUE','WED','THU','FRI','SAT'].map(d => <div key={d}>{d}</div>)}
+            </div>
+            <div className="grid grid-cols-7 gap-2">
+              {cells.map((d, i) => {
+                if (!d) return <div key={i} />;
+                const k = keyOf(d);
+                const daySessions = byDay[k] || [];
+                const isToday = k === todayKey;
+                const isSelected = k === selectedKey;
+                return (
+                  <button key={i} onClick={() => setSelected(d)}
+                    className={`min-h-[56px] text-left p-1.5 rounded-md border text-sm font-bold ${isSelected ? 'bg-slate-900 text-white border-slate-900' : isToday ? 'border-yellow-400 border-2' : 'border-slate-400 hover:bg-slate-50'}`}>
+                    {d.getDate()}
+                    <div className="flex gap-1 mt-1 flex-wrap">
+                      {daySessions.slice(0, 3).map((s, idx) => (
+                        <span key={idx} className={`w-2 h-2 rounded-full ${DOT_COLORS[s.type] || 'bg-slate-400'}`} title={s.title} />
+                      ))}
                     </div>
-                    {c.admin_response && (
-                      <div className="ml-11 bg-lgu-blue-50 p-3 rounded-lg border border-lgu-blue-100">
-                        <div className="flex items-center mb-1">
-                          <Shield className="w-3 h-3 text-lgu-blue-900 mr-1" />
-                          <span className="text-[10px] font-bold text-lgu-blue-900 uppercase">LGU Response</span>
-                        </div>
-                        <p className="text-xs text-slate-700">{c.admin_response}</p>
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Input Area */}
-            <div className="p-4 border-t border-slate-100 bg-slate-50 rounded-b-xl">
-              <form onSubmit={handleCommentSubmit} className="space-y-3">
-                <div className="grid grid-cols-1 gap-2">
-                  <input 
-                    type="text" 
-                    placeholder="Full Name" 
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:border-lgu-blue-900"
-                    value={userForm.name}
-                    onChange={e => setUserForm({...userForm, name: e.target.value})}
-                    required
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    <input 
-                      type="email" 
-                      placeholder="Email" 
-                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:border-lgu-blue-900"
-                      value={userForm.email}
-                      onChange={e => setUserForm({...userForm, email: e.target.value})}
-                      required
-                    />
-                    <input 
-                      type="text" 
-                      placeholder="Barangay" 
-                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:border-lgu-blue-900"
-                      value={userForm.barangay}
-                      onChange={e => setUserForm({...userForm, barangay: e.target.value})}
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="relative">
-                  <textarea
-                    className="w-full pl-3 pr-10 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-lgu-blue-900 resize-none text-sm"
-                    rows={3}
-                    placeholder="Type your comment..."
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                    required
-                  ></textarea>
-                  <button 
-                    type="submit" 
-                    disabled={isSubmitting}
-                    className="absolute bottom-3 right-3 text-lgu-blue-900 hover:text-lgu-gold-600 disabled:opacity-50"
-                  >
-                    <Send className="w-5 h-5" />
                   </button>
-                </div>
-              </form>
+                );
+              })}
             </div>
+            <p className="text-xs text-slate-400 mt-4">Click a day to see the sessions for that day. The yellow border is today.</p>
           </div>
-        </div>
-      </div>
 
-      {/* Session Schedule Section */}
-      <div className="mt-16">
-        <h2 className="text-3xl font-serif font-bold text-lgu-blue-900 mb-8 flex items-center">
-          <Calendar className="w-8 h-8 mr-3 text-lgu-gold-500" />
-          Legislative Session Schedule
-        </h2>
-        
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-6 py-4 text-sm font-bold text-slate-700 uppercase tracking-wider">Session Title</th>
-                  <th className="px-6 py-4 text-sm font-bold text-slate-700 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-4 text-sm font-bold text-slate-700 uppercase tracking-wider">Time</th>
-                  <th className="px-6 py-4 text-sm font-bold text-slate-700 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-4 text-sm font-bold text-slate-700 uppercase tracking-wider">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {sessions.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">No sessions scheduled.</td>
-                  </tr>
-                ) : (
-                  sessions.map((session) => (
-                    <tr 
-                      key={session.id} 
-                      className={`hover:bg-slate-50 transition-colors cursor-pointer ${activeSession?.id === session.id ? 'bg-lgu-blue-50/50' : ''}`}
-                      onClick={() => setActiveSession(session)}
-                    >
-                      <td className="px-6 py-4">
-                        <div className="font-bold text-slate-900">{session.title}</div>
-                      </td>
-                      <td className="px-6 py-4 text-slate-600 text-sm">
-                        {format(new Date(session.session_date), 'MMMM d, yyyy')}
-                      </td>
-                      <td className="px-6 py-4 text-slate-600 text-sm">
-                        {format(new Date(session.session_date), 'h:mm a')}
-                      </td>
-                      <td className="px-6 py-4 text-slate-600 text-sm">{session.type}</td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          session.status === 'Live' ? 'bg-red-100 text-red-800 animate-pulse' :
-                          session.status === 'Scheduled' ? 'bg-blue-100 text-blue-800' : 
-                          'bg-slate-100 text-slate-800'
-                        }`}>
-                          {session.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-          <div className="p-4 bg-slate-50 border-t border-slate-200 text-center">
-            <p className="text-xs text-slate-500 italic">
-              * Schedule is subject to change. Please check back regularly for updates.
-            </p>
+          {/* DETAIL */}
+          <div className="bg-white border border-slate-300 rounded-lg p-5">
+            <h3 className="font-serif font-bold text-lg">{selected.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} ({selected.toLocaleDateString('en-US', { weekday: 'long' })})</h3>
+            {selectedSessions.length === 0 ? (
+              <>
+                <p className="text-slate-500 text-sm mt-3">No session on this day.</p>
+                <p className="text-slate-400 text-xs mt-4 flex items-start gap-1"><MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" /> Sangguniang Bayan Session Hall, Ubay, Bohol</p>
+              </>
+            ) : (
+              <div className="space-y-4 mt-3">
+                {selectedSessions.map((s: any) => {
+                  const d = parseDate(s.session_date);
+                  return (
+                    <div key={s.id} className="border-b border-slate-100 pb-3 last:border-0">
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-medium ${TYPE_COLORS[s.type] || 'bg-slate-100'}`}>{s.type}</span>
+                      <p className="font-bold text-slate-900 mt-1.5">{s.title}</p>
+                      <p className="text-sm text-slate-500 flex items-center gap-1.5 mt-1"><Clock className="w-4 h-4" /> {d ? d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''}{s.location ? ` • ${s.location}` : ''}</p>
+                      {s.description && <p className="text-sm text-slate-600 mt-1">{s.description}</p>}
+                      {s.committee && <p className="text-xs text-slate-400 mt-1">Committee: {s.committee}</p>}
+                    </div>
+                  );
+                })}
+                <p className="text-slate-400 text-xs flex items-start gap-1"><MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" /> Sangguniang Bayan Session Hall, Ubay, Bohol</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

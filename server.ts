@@ -130,6 +130,22 @@ db.exec(`
   )
 `);
 
+// ===== SESSIONS - ADDED FOR SESSION CALENDAR (SQLite, same as others) =====
+db.exec(`
+  CREATE TABLE IF NOT EXISTS sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT,
+    session_date TEXT,
+    status TEXT DEFAULT 'Scheduled',
+    type TEXT DEFAULT 'Regular Session',
+    committee TEXT DEFAULT '',
+    description TEXT DEFAULT '',
+    video_url TEXT DEFAULT '',
+    streaming_platform TEXT DEFAULT 'YouTube',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
 // Seed admin
 const existing = db.prepare('SELECT * FROM users WHERE email = ?').get('Albert@lgu.gov.ph') as any;
 if (!existing) {
@@ -265,6 +281,29 @@ app.get('/api/admin/stats', (req, res) => {
   const memberCount = (db.prepare('SELECT COUNT(*) as c FROM sb_members').get() as any).c;
   const newsCount = (db.prepare('SELECT COUNT(*) as c FROM news_events').get() as any).c;
   res.json({ legislations: legCount, members: memberCount, news: newsCount, total_legislations: legCount, sessions: 0, views: 0 });
+});
+
+// ===== SESSIONS - ADDED FOR SESSION CALENDAR (SQLite version) =====
+app.get('/api/sessions', (req, res) => {
+  res.json(db.prepare('SELECT * FROM sessions ORDER BY session_date ASC').all());
+});
+app.post('/api/sessions', (req, res) => {
+  try {
+    const { title, session_date, status, type, committee, description, video_url, streaming_platform } = req.body;
+    const result = db.prepare(`INSERT INTO sessions (title, session_date, status, type, committee, description, video_url, streaming_platform) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(title, session_date, status || 'Scheduled', type || 'Regular Session', committee || '', description || '', video_url || '', streaming_platform || 'YouTube');
+    res.json({ success: true, id: result.lastInsertRowid });
+  } catch (err: any) { res.status(500).json({ message: err.message }); }
+});
+app.put('/api/sessions/:id', (req, res) => {
+  try {
+    const { title, session_date, status, type, committee, description, video_url, streaming_platform } = req.body;
+    db.prepare(`UPDATE sessions SET title = ?, session_date = ?, status = ?, type = ?, committee = ?, description = ?, video_url = ?, streaming_platform = ? WHERE id = ?`).run(title, session_date, status, type, committee, description, video_url, streaming_platform, req.params.id);
+    res.json({ success: true });
+  } catch (err: any) { res.status(500).json({ message: err.message }); }
+});
+app.delete('/api/sessions/:id', (req, res) => {
+  db.prepare('DELETE FROM sessions WHERE id = ?').run(req.params.id);
+  res.json({ success: true });
 });
 
 app.listen(PORT, () => {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FileText, Calendar, ArrowRight, Video, Users, Clock, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+// SAME SOURCE AS ADMIN: /api/sessions (SQLite) - not Supabase anymore, so dates stay in sync
 
 export default function Home() {
   const [sessions, setSessions] = useState<any[]>([]);
@@ -9,26 +9,43 @@ export default function Home() {
   useEffect(() => {
     const fetchSessions = async () => {
       try {
-        const { data } = await supabase.from('sessions').select('*').order('session_date', { ascending: false }).limit(5);
-        if (data) setSessions(data);
+        // Admin Session Calendar uses /api/sessions - use the same source so it stays in sync
+        const res = await fetch('/api/sessions');
+        const data = await res.json();
+        if (Array.isArray(data)) setSessions(data);
       } catch (err) { console.error(err); }
     };
     fetchSessions();
   }, []);
 
-  const today = new Date().toISOString().split('T')[0];
-  const upcoming = sessions
-    .filter((s) => (s.session_date || '').split('T')[0] >= today)
-    .sort((a, b) => new Date(a.session_date).getTime() - new Date(b.session_date).getTime());
-  const nextSession = upcoming[0] || null;
-
+  // FIX INVALID DATE ONLY - parse first, used by the filter below
+  function parseSessionDate(d: any): Date | null {
+    if (!d) return null;
+    let s = String(d).trim();
+    // TIMEZONE FIX: do not use new Date("2026-12-02") directly - UTC shift turns it into Dec 1!
+    // Split manually: year, month, day -> new Date(y, m-1, d) local time, no shift!
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) {
+      const y = Number(m[1]), mo = Number(m[2]) - 1, day = Number(m[3]);
+      // If there is a time like "2026-12-02T09:00:00", keep the time too
+      const tm = s.match(/T(\d{2}):(\d{2})/);
+      if (tm) return new Date(y, mo, day, Number(tm[1]), Number(tm[2]));
+      return new Date(y, mo, day, 9, 0);
+    }
+    const date = new Date(s);
+    return isNaN(date.getTime()) ? null : date;
+  }
   const formatSessionDate = (d: string) => {
-    if (!d) return '-';
-    try {
-      const date = new Date(d + 'T00:00:00');
-      return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase();
-    } catch { return d; }
+    const date = parseSessionDate(d);
+    if (!date) return 'To be announced';
+    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase();
   };
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const upcoming = sessions
+    .filter((s) => { const d = parseSessionDate(s.session_date); return d && d >= today; })
+    .sort((a, b) => (parseSessionDate(a.session_date)?.getTime() || 0) - (parseSessionDate(b.session_date)?.getTime() || 0));
+  const nextSession = upcoming[0] || null;
 
   return (
     <div className="space-y-0 pb-20 overflow-visible bg-transparent">
